@@ -26,6 +26,7 @@ import functools
 from datetime import datetime
 
 import cv2
+import numpy as np
 import tkinter as tk
 import customtkinter as ctk
 import PIL
@@ -33,6 +34,7 @@ import PIL
 import utils
 from app.camera import Camera
 from app import postprocessing
+from camscan import scanner
 
 
 WINDOW_WIDTH = 1024
@@ -100,7 +102,7 @@ RESOLUTIONS = [
 
 
 logging.basicConfig(
-    format="%(asctime)s %(message)s",
+    format="%(asctime)s [%(levelname)s]: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.DEBUG,
 )
@@ -444,6 +446,25 @@ class CameraScannerApp(ctk.CTk):
 
         self.show_frame()
 
+    def capture(self) -> tuple[cv2.Mat, cv2.Mat, np.ndarray]:
+        """
+        :return:
+            A tuple consisting of the raw image, the extracted warped image, and
+            a numpy array describing the contours of the found document. If the
+            video capture could not read a frame successfully, return None.
+        """
+        img_capture = camera.capture()
+
+        if img_capture is not None:
+            scan_result = scanner.main(img_capture)
+            return (
+                img_capture,
+                scan_result.warped,
+                scan_result.contour,
+            )
+
+        return (None, None, None)
+
     def show_frame(self):
         max_width = self.camera_image_widget.winfo_width()
         max_height = self.camera_image_widget.winfo_height()
@@ -453,11 +474,9 @@ class CameraScannerApp(ctk.CTk):
             self.after(ms=20, func=self.show_frame)
             return
 
-        result = camera.take_image()
+        raw_image, _, contour = self.capture()
 
-        if result is not None:
-            raw_image, _, contour = result
-
+        if raw_image is not None:
             postprocessing_option = self.var_postprocessing_option.get()
             postprocessing_function = POSTPROCESSING_OPTIONS[postprocessing_option]
 
@@ -487,7 +506,14 @@ class CameraScannerApp(ctk.CTk):
         self.after(ms=20, func=self.show_frame)
 
     def capture_image(self):
-        _, warped_image, _ = camera.take_image()
+        _, warped_image, _ = self.capture()
+
+        if warped_image is None:
+            tk.messagebox.showerror(
+                title="Error",
+                message="Could not capture and extracted image from the Camera",
+            )
+            return
 
         timestamp_str = datetime.now().strftime(r"%Y%m%d_%H%M%S_%f")
 
@@ -671,7 +697,7 @@ def configure_camera_event():
         camera.set_index(index=int(index))
 
     def _update_available_camera_indices():
-        available_camera_indices = camera.get_available_camera_indices()
+        available_camera_indices = camera.get_available_device_indices()
         camera_index_combobox.configure(values=list(map(str, available_camera_indices)))
         if available_camera_indices:
             camera_index_combobox.set(value=str(available_camera_indices[0]))
