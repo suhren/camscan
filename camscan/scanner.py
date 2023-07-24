@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-import image_utils
+import utils
 
 
 RESCALED_HEIGHT = 500.0
@@ -185,7 +185,7 @@ class ScanResult:
 
 
 def main(img: cv2.Mat):
-    img_scale = image_utils.resize_with_aspect_ratio(
+    img_scale = utils.resize_with_aspect_ratio(
         image=img,
         height=RESCALED_HEIGHT,
     )
@@ -335,7 +335,7 @@ def main(img: cv2.Mat):
     best_contour = order_contour(contour=best_contour)
     best_contour_original_scale = (best_contour * original_scale).astype(np.int32)
 
-    img_hough_best_contour = image_utils.draw_contour(
+    img_hough_best_contour = utils.draw_contour(
         image=img_hough_best_contour,
         contour=best_contour_original_scale,
     )

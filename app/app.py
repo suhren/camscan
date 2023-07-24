@@ -30,9 +30,10 @@ import tkinter as tk
 import customtkinter as ctk
 import PIL
 
-from camera import Camera
-import image_utils
-import postprocessing
+import utils
+from app.camera import Camera
+from app import postprocessing
+
 
 WINDOW_WIDTH = 1024
 WINDOW_HEIGHT = 768
@@ -111,7 +112,7 @@ def opencv_to_pil_image(
     height: int = None,
 ) -> PIL.Image:
     return PIL.Image.fromarray(
-        image_utils.resize_with_aspect_ratio(
+        utils.resize_with_aspect_ratio(
             image=cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
             width=width,
             height=height,
@@ -219,7 +220,7 @@ class CaptureEntry:
         window.attributes("-topmost", True)
 
 
-class App(ctk.CTk):
+class CameraScannerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
@@ -464,7 +465,7 @@ class App(ctk.CTk):
             if len(image.shape) == 2:
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
-            image = image_utils.draw_contour(image=image, contour=contour)
+            image = utils.draw_contour(image=image, contour=contour)
 
             image_width = image.shape[1]
             image_height = image.shape[0]
@@ -771,5 +772,5 @@ def change_ui_scaling_event(new_scaling: str):
 
 
 if __name__ == "__main__":
-    app = App()
+    app = CameraScannerApp()
     app.mainloop()

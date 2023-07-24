@@ -1,6 +1,6 @@
 import cv2
 
-import scanner
+from camscan import scanner
 
 
 FRAME_WIDTH = 3260  # 1536  # 3264
