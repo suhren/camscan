@@ -37,8 +37,8 @@ from app import postprocessing
 from camscan import scanner
 
 
-WINDOW_WIDTH = 1024
-WINDOW_HEIGHT = 768
+WINDOW_WIDTH = 1536
+WINDOW_HEIGHT = 864
 
 camera = Camera()
 
@@ -231,6 +231,7 @@ class CameraScannerApp(ctk.CTk):
             value=list(POSTPROCESSING_OPTIONS.keys())[0]
         )
         self.var_two_page_mode = tk.IntVar(value=0)
+        self.var_free_capture_mode = tk.IntVar(value=0)
         self.var_select_all_captures = tk.IntVar(value=0)
         self.var_merged_captures_file_type = tk.StringVar(
             value=EXPORT_MERGED_FILE_TYPES[0]
@@ -313,8 +314,13 @@ class CameraScannerApp(ctk.CTk):
         )
         self.two_page_setting_check_box = ctk.CTkCheckBox(
             self.left_sidebar_frame,
-            text="Two-page mode",
+            text="Two-page Mode",
             variable=self.var_two_page_mode,
+        )
+        self.free_capture_setting_check_box = ctk.CTkCheckBox(
+            self.left_sidebar_frame,
+            text="Free Capture Mode",
+            variable=self.var_free_capture_mode,
         )
         self.capture_image_button = ctk.CTkButton(
             self.left_sidebar_frame,
@@ -366,6 +372,7 @@ class CameraScannerApp(ctk.CTk):
         self.scaling_label.pack(**LEFT_MENU_PACK_KWARGS)
         self.scaling_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
         self.capture_image_label.pack(**LEFT_MENU_PACK_KWARGS)
+        self.free_capture_setting_check_box.pack(**LEFT_MENU_PACK_KWARGS)
         self.two_page_setting_check_box.pack(**LEFT_MENU_PACK_KWARGS)
         self.capture_image_button.pack(**LEFT_MENU_PACK_KWARGS)
         self.export_separate_captures_label.pack(**LEFT_MENU_PACK_KWARGS)
@@ -484,7 +491,8 @@ class CameraScannerApp(ctk.CTk):
             if len(image.shape) == 2:
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
 
-            image = utils.draw_contour(image=image, contour=contour)
+            if not self.var_free_capture_mode.get():
+                image = utils.draw_contour(image=image, contour=contour)
 
             image_width = image.shape[1]
             image_height = image.shape[0]
@@ -506,33 +514,48 @@ class CameraScannerApp(ctk.CTk):
         self.after(ms=20, func=self.show_frame)
 
     def capture_image(self):
-        _, warped_image, _ = self.capture()
+        full_image, warped_image, _ = self.capture()
 
-        if warped_image is None:
+        if self.var_free_capture_mode.get():
+            if full_image is not None:
+                image = full_image
+            else:
+                tk.messagebox.showerror(
+                    title="Error",
+                    message="Could not capture an image from the Camera.",
+                )
+                return
+
+        elif warped_image is not None:
+            image = warped_image
+        else:
             tk.messagebox.showerror(
                 title="Error",
-                message="Could not capture and extracted image from the Camera",
+                message=(
+                    "Could not extract the document image from the Camera. "
+                    "Enable 'Free Capture Mode' to take the image anyway."
+                ),
             )
             return
 
         timestamp_str = datetime.now().strftime(r"%Y%m%d_%H%M%S_%f")
 
         if self.var_two_page_mode.get():
-            cutoff_width = warped_image.shape[1] // 2
-            left_warped_image = warped_image[:, :cutoff_width]
-            right_warped_image = warped_image[:, cutoff_width:]
+            cutoff_width = image.shape[1] // 2
+            left_image = image[:, :cutoff_width]
+            right_image = image[:, cutoff_width:]
 
             new_entries = [
                 CaptureEntry(
                     master=self.scrollable_frame,
-                    image=left_warped_image,
+                    image=left_image,
                     name=f"{timestamp_str}_1",
                     index=len(self.entries) + 1,
                     move_entry=self.move_entry,
                 ),
                 CaptureEntry(
                     master=self.scrollable_frame,
-                    image=right_warped_image,
+                    image=right_image,
                     name=f"{timestamp_str}_2",
                     index=len(self.entries) + 2,
                     move_entry=self.move_entry,
@@ -542,7 +565,7 @@ class CameraScannerApp(ctk.CTk):
             new_entries = [
                 CaptureEntry(
                     master=self.scrollable_frame,
-                    image=warped_image,
+                    image=image,
                     name=timestamp_str,
                     index=len(self.entries) + 1,
                     move_entry=self.move_entry,
