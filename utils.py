@@ -11,7 +11,7 @@ def draw_contour(
     thickness: int = 4,
 ) -> cv2.Mat:
     return cv2.polylines(
-        img=image,
+        img=image.copy(),
         pts=[contour],
         isClosed=True,
         color=color,
