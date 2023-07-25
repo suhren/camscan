@@ -1,58 +1,55 @@
 """
-- Camera preview [DONE]
-- Button to take image (hot key with space bar) [DONE]
-- Checkbox for two-page mode [DONE]
-- Camera settings
-  - Camera source [DONE]
-  - Open camera settings dialogue [DONE] 
-- Image settings [DONE]
-  - Grayscale [DONE]
-  - Sharpen? [DONE]
-- List with taken images [DONE]
-  - Ability to remove images [DONE]
-  - Ability to reorder images? [DONE]
-- Export button [DONE]
-  - To PDF [DONE]
-  - To directory of images [DONE]
+This is an application used for scanning documents using a camera connected to
+your computer, like your webcam. This module specifically implements the GUI
+part of the application, as well as the code used to handle, post process, and
+export the captured images.
 
 TODO:
 - Fix bug where the scrollbar doesn't sync up if many entries (around 10) are deleted 
 """
 
+from datetime import datetime
+import functools
+import logging
 import os
 import re
-import logging
-import functools
-from datetime import datetime
+import typing as t
 
+import customtkinter as ctk
 import cv2
 import numpy as np
-import tkinter as tk
-import customtkinter as ctk
 import PIL
+import tkinter as tk
 
-import utils
-from app.camera import Camera
 from app import postprocessing
+from app.camera import Camera
 from camscan import scanner
+import utils
 
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s]: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.DEBUG,
+)
 
+# Define the initial application window size
 WINDOW_WIDTH = 1536
 WINDOW_HEIGHT = 864
 
-camera = Camera()
+# Define the to wait before updating the camera feed (20ms)
+CAMERA_FEED_WAIT_MS = 20
 
+# Define constants related to the styling of widgets in the GUI
 LEFT_MENU_PAD_X = 20
 LEFT_MENU_PAD_Y = 5
-
 RIGHT_MENU_PAD_X = 10
 RIGHT_MENU_PAD_Y = 5
-
 LEFT_MENU_PACK_KWARGS = dict(padx=LEFT_MENU_PAD_X, pady=LEFT_MENU_PAD_Y)
 RIGHT_MENU_PACK_KWARGS = dict(padx=RIGHT_MENU_PAD_X, pady=RIGHT_MENU_PAD_Y)
 
-# See the OpenCV documentation for the supported file types to export:
-# https://docs.opencv.org/3.4/d4/da8/group__imgcodecs.html#ga288b8b3da0892bd651fce07b3bbd3a56
+# Specify supported file formats when exporting images as separate files.
+# See the OpenCV documentation for more information on the supported file types:
+# https://docs.opencv.org/3.4/d4/da8/group__imgcodecs.html
 EXPORT_SEPARATE_FILE_TYPES = [
     "png",
     "bmp",
@@ -75,11 +72,13 @@ EXPORT_SEPARATE_FILE_TYPES = [
     "hdr",
     "pic",
 ]
+
+# Specify supported file formats when exporting images as a single merged file
 EXPORT_MERGED_FILE_TYPES = [
     "pdf",
 ]
 
-
+# Specify the supported postprocessing functions for the captured images
 POSTPROCESSING_OPTIONS = {
     "None": postprocessing.dummy,
     "Sharpen": postprocessing.sharpen,
@@ -87,6 +86,8 @@ POSTPROCESSING_OPTIONS = {
     "Black and White": postprocessing.black_and_white,
 }
 
+# Define the list of pre-defined camera resolutions. In addition to these, the
+# user can also enter custom resolutions manually.
 RESOLUTIONS = [
     "3264x2448",
     "3264x1836",
@@ -101,18 +102,19 @@ RESOLUTIONS = [
 ]
 
 
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s]: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.DEBUG,
-)
-
-
 def opencv_to_pil_image(
     image: cv2.Mat,
     width: int = None,
     height: int = None,
 ) -> PIL.Image:
+    """
+    Given an OpenCV image, convert to to a PIL image. The function also supports
+    resizing the image while keeping its original aspect ratio.
+    :param image: The input OpenCV image
+    :param width: Optional width to scale the image to
+    :param width: Optional height to scale the image to
+    :return: The image converted to a PIL image
+    """
     return PIL.Image.fromarray(
         utils.resize_with_aspect_ratio(
             image=cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
@@ -127,6 +129,14 @@ def opencv_to_tk_image(
     width: int = None,
     height: int = None,
 ) -> ctk.CTkImage:
+    """
+    Given an OpenCV image, convert to to a CTkImage. The function also supports
+    resizing the image while keeping its original aspect ratio.
+    :param image: The input OpenCV image
+    :param width: Optional width to scale the image to
+    :param width: Optional height to scale the image to
+    :return: The image converted to a CTkImage
+    """
     pil_image = opencv_to_pil_image(image=image, width=width, height=height)
     return ctk.CTkImage(
         pil_image,
@@ -135,7 +145,25 @@ def opencv_to_tk_image(
 
 
 class CaptureEntry:
-    def __init__(self, image: cv2.Mat, name: str, index: int, master, move_entry):
+    """
+    Helper class for keeping track of the captured images. This class both
+    contains the original OpenCV image, as well as the GUI element called an
+    'Entry' which is comprised of several underlying widgets.
+    :param image: The original OpenCV image capture from the camera
+    :param name: A name given to the image which is displayed in the Entry
+    :param index: The index number shown in the Entry
+    :param master: The parent widget containing the Entry
+    :param move_entry: A function used to move this entry up or down in the list
+    """
+
+    def __init__(
+        self,
+        image: cv2.Mat,
+        name: str,
+        index: int,
+        master: ctk.CTkBaseClass,
+        move_entry: t.Callable,
+    ):
         self.var_selected = tk.IntVar(value=0)
         self.original_image = image.copy()
         self.current_image = image.copy()
@@ -222,10 +250,20 @@ class CaptureEntry:
         window.attributes("-topmost", True)
 
 
-class CameraScannerApp(ctk.CTk):
+class CamScanApp(ctk.CTk):
+    """
+    Application class for CamScan. This defines a CTk Window object containing
+    the entire GUI of the application, as well as supporting code.
+
+    Example usage:
+        app = CameraScannerApp()
+        app.mainloop()
+    """
+
     def __init__(self):
         super().__init__()
 
+        self.camera = Camera()
         self.entries = []
         self.var_postprocessing_option = tk.StringVar(
             value=list(POSTPROCESSING_OPTIONS.keys())[0]
@@ -242,7 +280,7 @@ class CameraScannerApp(ctk.CTk):
         self.var_select_all_captures = tk.IntVar(value=0)
 
         # configure window
-        self.title("Scanner")
+        self.title("CamScan")
         self.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 
         # Configure the grid layout
@@ -267,22 +305,22 @@ class CameraScannerApp(ctk.CTk):
         self.camera_selection_button = ctk.CTkButton(
             self.left_sidebar_frame,
             text="Configure Camera",
-            command=configure_camera_event,
+            command=self.configure_camera_event,
         )
         self.camera_settings_button = ctk.CTkButton(
             self.left_sidebar_frame,
             text="Camera Driver Settings",
-            command=change_camera_settings_event,
+            command=self.camera.show_settings,
         )
 
         # Add a menu for the color settings
-        self.post_processing_menu_label = ctk.CTkLabel(
+        self.postprocessing_menu_label = ctk.CTkLabel(
             self.left_sidebar_frame, text="Postprocessing:", anchor="w"
         )
-        self.post_processing_option_menu = ctk.CTkOptionMenu(
+        self.postprocessing_option_menu = ctk.CTkOptionMenu(
             self.left_sidebar_frame,
             values=list(POSTPROCESSING_OPTIONS.keys()),
-            command=self.change_post_processing_event,
+            command=self.change_postprocessing_event,
             variable=self.var_postprocessing_option,
         )
 
@@ -365,8 +403,8 @@ class CameraScannerApp(ctk.CTk):
         self.camera_settings_label.pack(**LEFT_MENU_PACK_KWARGS)
         self.camera_selection_button.pack(**LEFT_MENU_PACK_KWARGS)
         self.camera_settings_button.pack(**LEFT_MENU_PACK_KWARGS)
-        self.post_processing_menu_label.pack(**LEFT_MENU_PACK_KWARGS)
-        self.post_processing_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
+        self.postprocessing_menu_label.pack(**LEFT_MENU_PACK_KWARGS)
+        self.postprocessing_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
         self.appearance_mode_label.pack(**LEFT_MENU_PACK_KWARGS)
         self.appearance_mode_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
         self.scaling_label.pack(**LEFT_MENU_PACK_KWARGS)
@@ -455,12 +493,14 @@ class CameraScannerApp(ctk.CTk):
 
     def capture(self) -> tuple[cv2.Mat, cv2.Mat, np.ndarray]:
         """
+        Capture an image from the camera and run the document detection
+        algorithm on the resulting image.
         :return:
             A tuple consisting of the raw image, the extracted warped image, and
             a numpy array describing the contours of the found document. If the
             video capture could not read a frame successfully, return None.
         """
-        img_capture = camera.capture()
+        img_capture = self.camera.capture()
 
         if img_capture is not None:
             scan_result = scanner.main(img_capture)
@@ -473,49 +513,63 @@ class CameraScannerApp(ctk.CTk):
         return (None, None, None)
 
     def show_frame(self):
+        """
+        This function is continuously called to show the camera feed in the
+        central widget of the application.
+        """
+        # Get the current width and height of the camera widget area
         max_width = self.camera_image_widget.winfo_width()
         max_height = self.camera_image_widget.winfo_height()
 
+        # At startup, this area might still be of size zero. If so, try later
         if not (max_width > 1 and max_height > 1):
-            # run again after 20ms (0.02s)
-            self.after(ms=20, func=self.show_frame)
+            # Run again after a delay
+            self.after(ms=CAMERA_FEED_WAIT_MS, func=self.show_frame)
             return
 
+        # Capture an image and the resulting detected contour from the camera
         raw_image, _, contour = self.capture()
 
         if raw_image is not None:
+            # Apply the current postprocessing to the image before displaying
             postprocessing_option = self.var_postprocessing_option.get()
             postprocessing_function = POSTPROCESSING_OPTIONS[postprocessing_option]
-
             image = postprocessing_function(raw_image)
+            # The image must have three color channels, so convert if needed
             if len(image.shape) == 2:
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-
+            # If we are using the 'Free Capture' mode, skip drawing the contour
             if not self.var_free_capture_mode.get():
                 image = utils.draw_contour(image=image, contour=contour)
-
+            # Convert the OpenCV image to a CTkImage to display in the widget
             image_width = image.shape[1]
             image_height = image.shape[0]
-
+            # If the image is larger than the max widget size, resize it first
             if image_width > max_width or image_height > max_height:
                 image = opencv_to_tk_image(
                     image=image, width=max_width, height=max_height
                 )
             else:
                 image = opencv_to_tk_image(image=image)
-
+            # Update the camera image widget
             self.camera_image_widget.photo = image
             self.camera_image_widget.configure(image=image)
+            # Ensure the camera image widget is top of the 'No Camera' widget
             self.camera_image_widget.lift()
         else:
+            # If there was no image captured, lift the 'No Camera' widget on top
             self.camera_image_label.lift()
 
-        # run again after 20ms (0.02s)
-        self.after(ms=20, func=self.show_frame)
+        # Run again after a delay
+        self.after(ms=CAMERA_FEED_WAIT_MS, func=self.show_frame)
 
     def capture_image(self):
+        """
+        Capture an image using the camera.
+        """
         full_image, warped_image, _ = self.capture()
 
+        # If we are using Free Capture mode, use the full uncropped image
         if self.var_free_capture_mode.get():
             if full_image is not None:
                 image = full_image
@@ -525,7 +579,7 @@ class CameraScannerApp(ctk.CTk):
                     message="Could not capture an image from the Camera.",
                 )
                 return
-
+        # Otherwise, use the warped cropped extracted image
         elif warped_image is not None:
             image = warped_image
         else:
@@ -538,13 +592,14 @@ class CameraScannerApp(ctk.CTk):
             )
             return
 
+        # Give the capture a name using a timestamp string
         timestamp_str = datetime.now().strftime(r"%Y%m%d_%H%M%S_%f")
 
+        # If we are using two-page mode, cut the image into left and right parts
         if self.var_two_page_mode.get():
             cutoff_width = image.shape[1] // 2
             left_image = image[:, :cutoff_width]
             right_image = image[:, cutoff_width:]
-
             new_entries = [
                 CaptureEntry(
                     master=self.scrollable_frame,
@@ -561,6 +616,7 @@ class CameraScannerApp(ctk.CTk):
                     move_entry=self.move_entry,
                 ),
             ]
+        # Otherwise, take the entire image and as as an entry
         else:
             new_entries = [
                 CaptureEntry(
@@ -572,25 +628,35 @@ class CameraScannerApp(ctk.CTk):
                 )
             ]
 
-        self.apply_post_processing(entries=new_entries)
+        # If a postprocessing function is selected, apply it to the new images
+        self.apply_postprocessing(entries=new_entries)
         self.entries += new_entries
 
+        # Update the scrollable frame with the entries and move it to the bottom
         self.scrollable_frame.update()
         self.scrollable_frame._parent_canvas.yview_moveto(1.0)
 
     def move_entry(self, entry: CaptureEntry, distance: int):
+        """
+        Move an entry in the capture list either up or down by some distance.
+        :param entry: The CaptureEntry to move
+        :param distance: The move distance (-1 to move up, or +1 to move down)
+        """
+        # Find the current index 'i' of the entry and the destination index 'j'
         i = self.entries.index(entry)
         j = i + distance
 
+        # If the destination index is out of range, skip the operation
         if j < 0 or j >= len(self.entries):
             return
 
+        # Get the current grid rows of the entries. This is not really needed
+        # since the indices i and j should be the same as the grid row
         i_grid_row = self.entries[i].frame.grid_info()["row"]
         j_grid_row = self.entries[j].frame.grid_info()["row"]
 
-        logging.debug(f"Switching entries in rows {i_grid_row} and {j_grid_row}")
-
         # Switch grid positions
+        logging.debug(f"Switching entries in rows {i_grid_row} and {j_grid_row}")
         self.entries[i].frame.grid(row=j_grid_row)
         self.entries[j].frame.grid(row=i_grid_row)
 
@@ -602,6 +668,10 @@ class CameraScannerApp(ctk.CTk):
         self.entries[i], self.entries[j] = self.entries[j], self.entries[i]
 
     def select_all_entries(self):
+        """
+        Select or deselect all current capture entries.
+        """
+        # Depending on the state of the checkbox, select or deselect all entries
         select = self.var_select_all_captures.get()
         for entry in self.entries:
             if select:
@@ -610,24 +680,36 @@ class CameraScannerApp(ctk.CTk):
                 entry.selection_checkbox.deselect()
 
     def delete_selected_entries(self):
+        """
+        Delete all the currently selected capture entries.
+        """
+        # Select the entries based on the state of their checkbox variable
         entries_to_delete = [e for e in self.entries if e.var_selected.get()]
-
         logging.debug(f"Removing {len(entries_to_delete)} entries")
-
+        # For each such entry, destroy its frame and remove from the list
         for entry in entries_to_delete:
             entry.frame.destroy()
             self.entries.remove(entry)
-
+        # After deletion, update the grid positions of the remaining entries
         for i, entry in enumerate(self.entries):
             entry.frame.grid(row=i)
 
+        # Move the scrollable canvas back up to the top, then back to the bottom
+        # If this is not done, after deleting entries the canvas might be in an
+        # empty location towards the bottom
+        # TODO: Fix this, as it doesn't work!
         self.scrollable_frame._parent_canvas.yview_moveto(0.0)
         self.scrollable_frame.update()
         self.scrollable_frame._parent_canvas.yview_moveto(1.0)
 
+        # Uncheck the checkbox for selecting all entries
         self.select_all_captures_check_box.deselect()
 
     def export_merged_captures(self):
+        """
+        Export all the current captures as a single merged file.
+        """
+        # Get the currently select file type to export as
         file_type = self.var_merged_captures_file_type.get()
 
         n = len(self.entries)
@@ -640,36 +722,45 @@ class CameraScannerApp(ctk.CTk):
             )
             return
 
+        # Create the name of the output file as a timestamp string
         timestamp_str = datetime.now().strftime(r"%Y%m%d_%H%M%S")
         initialfile = f"captures_{timestamp_str}.{file_type}"
 
+        # Bring up a dialog asking for the output file path
         file_path = tk.filedialog.asksaveasfilename(
             initialfile=initialfile,
             defaultextension=".pdf",
             filetypes=[("PDF Documents", "*.pdf"), ("All Files", "*.*")],
         )
 
+        # If no output file was chosen (e.g. dialog cancelled), return
         if not file_path:
             return
 
-        # convert to PIL image
+        # Convert the captured OpenCV images to PIL images
         images = [opencv_to_pil_image(entry.current_image) for entry in self.entries]
 
+        # The PIL save functionality requires that we initiate it from a single
+        # image, then append the remaining images as function parameter
         first_image = images[0]
         remaining_images = images[1:]
-
         first_image.save(
             file_path,
             save_all=True,
             append_images=remaining_images,
         )
 
+        # Show a message box indicating to the user that the export succeeded
         tk.messagebox.showinfo(
             title="Export Successful",
             message=f"{n} captures exported as {file_type} to {file_path}",
         )
 
     def export_separate_captures(self):
+        """
+        Export all the current captures as separate files in a directory.
+        """
+        # Get the currently select file type to export as
         file_type = self.var_separate_captures_file_type.get()
 
         n = len(self.entries)
@@ -682,144 +773,170 @@ class CameraScannerApp(ctk.CTk):
             )
             return
 
-        file_dialog_directory = tk.filedialog.askdirectory()
+        # Bring up a dialog asking for the output directory path
+        file_dialog_dir = tk.filedialog.askdirectory()
 
-        if not file_dialog_directory:
+        # If no output directory was chosen (e.g. dialog cancelled), return
+        if not file_dialog_dir:
             return
 
+        # Create the name of the output directory as a timestamp string
         timestamp_str = datetime.now().strftime(r"%Y%m%d_%H%M%S")
+        output_dir = f"{file_dialog_dir}/captures_{timestamp_str}"
+        os.makedirs(output_dir, exist_ok=True)
 
-        output_directory = f"{file_dialog_directory}/captures_{timestamp_str}"
-
-        os.makedirs(output_directory, exist_ok=True)
-
+        # For each capture, write the image to the output directory
         for i, entry in enumerate(self.entries, start=1):
             cv2.imwrite(
-                filename=f"{output_directory}/{i}_{entry.name}.{file_type}",
+                filename=f"{output_dir}/{i}_{entry.name}.{file_type}",
                 img=entry.current_image,
             )
 
+        # Show a message box indicating to the user that the export succeeded
         tk.messagebox.showinfo(
             title="Export Successful",
-            message=f"{n} captures exported as {file_type} to {output_directory}",
+            message=f"{n} captures exported as {file_type} to {output_dir}",
         )
 
-    def change_post_processing_event(self, *args):
-        self.apply_post_processing(entries=self.entries)
+    def change_postprocessing_event(self, *args):
+        """
+        Handle the event when the chose postprocessing function changes.
+        When it does, apply it to all current capture entries.
+        """
+        self.apply_postprocessing(entries=self.entries)
 
-    def apply_post_processing(self, entries: list[CaptureEntry]):
+    def apply_postprocessing(self, entries: list[CaptureEntry]):
+        """
+        Apply currently chosen postprocessing function to given capture entries.
+        :param entries: The capture entries to apply the postprocessing to
+        """
         postprocessing_option = self.var_postprocessing_option.get()
         postprocessing_function = POSTPROCESSING_OPTIONS[postprocessing_option]
         for entry in entries:
             new_image = postprocessing_function(entry.original_image)
             entry.set_current_image(image=new_image)
 
+    def configure_camera_event(self):
+        """
+        Handle the event for configuring the camera. This is done by opening a
+        separate window with the available configuration.
+        """
 
-def configure_camera_event():
-    def _set_camera_index(index: int):
-        camera.set_index(index=int(index))
+        def _set_camera_index(index: int):
+            """Callback for changing the camera device index"""
+            self.camera.set_index(index=int(index))
 
-    def _update_available_camera_indices():
-        available_camera_indices = camera.get_available_device_indices()
-        camera_index_combobox.configure(values=list(map(str, available_camera_indices)))
-        if available_camera_indices:
-            camera_index_combobox.set(value=str(available_camera_indices[0]))
-            _set_camera_index(available_camera_indices[0])
+        def _update_available_camera_indices():
+            """Callback for updating the available camera device indices"""
+            camera_indices = self.camera.get_available_device_indices()
+            camera_index_combobox.configure(values=list(map(str, camera_indices)))
+            if camera_indices:
+                camera_index_combobox.set(value=str(camera_indices[0]))
+                _set_camera_index(camera_indices[0])
 
-    def _set_camera_resolution(resolution_string: str):
-        regex = re.compile(r"^(\d+)x(\d+)$")
-        matches = regex.findall(resolution_string)
-        if not matches:
-            tk.messagebox.showerror(
-                title="Error",
-                message="The resolution string must be on the form '<width>x<height>'",
-            )
-            return
+        def _set_camera_resolution(resolution_string: str):
+            """Set the camera resolution from a resolution string"""
+            regex = re.compile(r"^(\d+)x(\d+)$")
+            matches = regex.findall(resolution_string)
+            if matches:
+                resolution = (int(matches[0][0]), int(matches[0][1]))
+                self.camera.set_resolution(resolution=resolution)
+            else:
+                tk.messagebox.showerror(
+                    title="Error",
+                    message=(
+                        "The resolution string must be on the form '<width>x<height>'"
+                    ),
+                )
 
-        resolution = (int(matches[0][0]), int(matches[0][1]))
-        camera.set_resolution(resolution=resolution)
+        # Create a new top-level window for the camera configuration
+        window = ctk.CTkToplevel()
+        window.resizable(width=False, height=False)
+        window.title("Camera Configuration")
 
-    window = ctk.CTkToplevel()
-    window.resizable(width=False, height=False)
-    window.title("Camera Configuration")
+        # Define the variables
+        possible_camera_indices = list(map(str, range(10)))
+        current_resolution_string = "x".join(map(str, self.camera.resolution))
+        var_camera_index = tk.StringVar(value=possible_camera_indices[0])
+        var_camera_resolution = tk.StringVar(value=current_resolution_string)
+        var_custom_camera_resolution = tk.StringVar(value=current_resolution_string)
 
-    possible_camera_indices = list(map(str, range(10)))
-    var_camera_index = tk.StringVar(value=possible_camera_indices[0])
-    current_resolution_string = "x".join(map(str, camera.resolution))
-    var_camera_resolution = tk.StringVar(value=current_resolution_string)
-    var_custom_camera_resolution = tk.StringVar(value=current_resolution_string)
+        # Define the widgets
+        camera_index_label = ctk.CTkLabel(
+            master=window,
+            text="Select Camera Index:",
+        )
+        camera_index_combobox = ctk.CTkOptionMenu(
+            master=window,
+            values=possible_camera_indices,
+            command=_set_camera_index,
+            state="readonly",
+            variable=var_camera_index,
+        )
+        find_camera_indices_button = ctk.CTkButton(
+            master=window,
+            text="Identify Cameras",
+            command=_update_available_camera_indices,
+        )
+        camera_resolution_label = ctk.CTkLabel(
+            master=window,
+            text="Camera Resolution:",
+        )
+        camera_resolution_combobox = ctk.CTkOptionMenu(
+            master=window,
+            values=RESOLUTIONS,
+            command=_set_camera_resolution,
+            variable=var_camera_resolution,
+        )
+        custom_camera_resolution_label = ctk.CTkLabel(
+            master=window,
+            text="Custom Camera Resolution:",
+        )
+        custom_camera_resolution_entry = ctk.CTkEntry(
+            master=window, textvariable=var_custom_camera_resolution
+        )
 
-    camera_index_label = ctk.CTkLabel(
-        master=window,
-        text="Select Camera Index:",
-    )
-    camera_index_combobox = ctk.CTkOptionMenu(
-        master=window,
-        values=possible_camera_indices,
-        command=_set_camera_index,
-        state="readonly",
-        variable=var_camera_index,
-    )
-    find_camera_indices_button = ctk.CTkButton(
-        master=window,
-        text="Identify Cameras",
-        command=_update_available_camera_indices,
-    )
-    camera_resolution_label = ctk.CTkLabel(
-        master=window,
-        text="Camera Resolution:",
-    )
-    camera_resolution_combobox = ctk.CTkOptionMenu(
-        master=window,
-        values=RESOLUTIONS,
-        command=_set_camera_resolution,
-        variable=var_camera_resolution,
-    )
-    custom_camera_resolution_label = ctk.CTkLabel(
-        master=window,
-        text="Custom Camera Resolution:",
-    )
-    custom_camera_resolution_entry = ctk.CTkEntry(
-        master=window, textvariable=var_custom_camera_resolution
-    )
+        custom_camera_resolution_button = ctk.CTkButton(
+            master=window,
+            text="Set Custom Resolution",
+            command=functools.partial(
+                _set_camera_resolution, var_custom_camera_resolution.get()
+            ),
+        )
 
-    def _set_custom_camera_resolution():
-        _set_camera_resolution(var_custom_camera_resolution.get())
+        # Pack the widgets
+        pack_kwargs = dict(padx=10, pady=5)
+        camera_index_label.pack(padx=10, pady=(20, 5))
+        camera_index_combobox.pack(**pack_kwargs)
+        find_camera_indices_button.pack(**pack_kwargs)
+        camera_resolution_label.pack(**pack_kwargs)
+        camera_resolution_combobox.pack(**pack_kwargs)
+        custom_camera_resolution_label.pack(**pack_kwargs)
+        custom_camera_resolution_entry.pack(**pack_kwargs)
+        custom_camera_resolution_button.pack(padx=10, pady=(5, 20))
 
-    custom_camera_resolution_button = ctk.CTkButton(
-        master=window,
-        text="Set Custom Resolution",
-        command=_set_custom_camera_resolution,
-    )
-
-    pack_kwargs = dict(padx=10, pady=5)
-    camera_index_label.pack(padx=10, pady=(20, 5))
-    camera_index_combobox.pack(**pack_kwargs)
-    find_camera_indices_button.pack(**pack_kwargs)
-    camera_resolution_label.pack(**pack_kwargs)
-    camera_resolution_combobox.pack(**pack_kwargs)
-    custom_camera_resolution_label.pack(**pack_kwargs)
-    custom_camera_resolution_entry.pack(**pack_kwargs)
-    custom_camera_resolution_button.pack(padx=10, pady=(5, 20))
-
-    # Make sure this window is on top of the main window
-    window.lift()
-    window.attributes("-topmost", True)
-
-
-def change_camera_settings_event():
-    camera.show_settings()
+        # Make sure this window is on top of the main window
+        window.lift()
+        window.attributes("-topmost", True)
 
 
 def change_ui_appearance_event(new_appearance_mode: str):
+    """
+    Handle the event to update the application appearance.
+    :param new_appearance_mode: The appearance mode (System, Dark, Light)
+    """
     ctk.set_appearance_mode(new_appearance_mode)
 
 
 def change_ui_scaling_event(new_scaling: str):
+    """
+    Handle the event to update the application UI scale.
+    :param new_scaling: The new scaling string on the form XX%
+    """
     new_scaling_float = int(new_scaling.replace("%", "")) / 100
     ctk.set_widget_scaling(new_scaling_float)
 
 
 if __name__ == "__main__":
-    app = CameraScannerApp()
+    app = CamScanApp()
     app.mainloop()
