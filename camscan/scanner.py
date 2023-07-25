@@ -484,7 +484,7 @@ def main(img: cv2.Mat) -> ScanResult:
 
     # HoughLines produces an array with shape (num_lines, 1, 2) which we are
     # reshaping to (num_lines, 2)
-    lines = lines.squeeze()
+    lines = lines.reshape((lines.shape[0], lines.shape[2]))
     img_hough_preview = draw_hough_lines(image=img_hough_preview, lines=lines)
 
     # Run the contour finding algorithm to get a list of contours
