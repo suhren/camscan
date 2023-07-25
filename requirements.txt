@@ -1,0 +1,6 @@
+black
+customtkinter
+numpy
+opencv-python
+Pillow
+pytest

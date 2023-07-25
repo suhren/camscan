@@ -1,0 +1,46 @@
+# NOTE: you have to use single-quoted strings in TOML for regular expressions.
+# It's the equivalent of r-strings in Python.  Multiline strings are treated as
+# verbose regular expressions by Black.  Use [ ] to denote a significant space
+# character.
+
+# black
+[tool.black]
+line-length = 88
+target-version = ['py36', 'py37', 'py38']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # The following are specific to Black, you probably don't want those.
+  | blib2to3
+  | tests/data
+  | profiling
+)/
+'''
+# We use preview style for formatting Black itself. If you
+# want stable formatting across releases, you should keep
+# this off.
+preview = true
+
+
+# pytest
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+markers = [
+    "integration: Integration tests (deselect with '-m \"not integration\"')",
+]
+
+# pylint
+[tool.pylint.basic]
+good-names = ["i", "j", "k", "ex", "Run", "_", "df", "e"]
+max-line-length = 88
+disable = [
+    # Allow f-string interpolation in logging statements
+    "logging-fstring-interpolation",
+]
+extension-pkg-whitelist = [
+    # Pylint has issues finding the BasecClass of pydantic:
+    # https://github.com/pydantic/pydantic/issues/1961
+    "pydantic",
+]
