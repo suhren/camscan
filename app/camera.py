@@ -86,7 +86,6 @@ class Camera:
         is_frame_read_correctly, img_capture = self._video_capture.read()
 
         if not is_frame_read_correctly:
-            logging.error("Can't receive frame (stream end?). Exiting ...")
             return None
 
         return img_capture
