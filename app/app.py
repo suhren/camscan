@@ -3,9 +3,6 @@ This is an application used for scanning documents using a camera connected to
 your computer, like your webcam. This module specifically implements the GUI
 part of the application, as well as the code used to handle, post process, and
 export the captured images.
-
-TODO:
-- Fix bug where the scrollbar doesn't sync up if many entries (around 10) are deleted 
 """
 
 from datetime import datetime
@@ -744,21 +741,37 @@ class CamScanApp(ctk.CTk):
         # Select the entries based on the state of their checkbox variable
         entries_to_delete = [e for e in self.entries if e.var_selected.get()]
         logging.debug(f"Removing {len(entries_to_delete)} entries")
+
         # For each such entry, destroy its frame and remove from the list
         for entry in entries_to_delete:
             entry.frame.destroy()
             self.entries.remove(entry)
+
         # After deletion, update the grid positions of the remaining entries
         for i, entry in enumerate(self.entries):
             entry.frame.grid(row=i)
 
-        # Move the scrollable canvas back up to the top, then back to the bottom
-        # If this is not done, after deleting entries the canvas might be in an
-        # empty location towards the bottom
-        # TODO: Fix this, as it doesn't work!
-        self.scrollable_frame._parent_canvas.yview_moveto(0.0)
-        self.scrollable_frame.update()
-        self.scrollable_frame._parent_canvas.yview_moveto(1.0)
+        # There is some peculiar behavior of the scrollbar in the scrollable
+        # frame when all entries are deleted at once. If there are enough
+        # entries (around 5+) to make the scrollbar active, and it is scrolled
+        # all the way to the bottom, it will not correctly update its allowed
+        # range of scrolling when the entries are deleted. Instead, it will
+        # still be scrolled all the way to the bottom, with the scrollable frame
+        # being completely empty. After testing, it seems that one (hacky)
+        # solution to this is to do the following:
+        # - Add back a widget in the grid (a dummy frame in this solution)
+        # - Move the scroll all the way back up to the top (yview_moveto)
+        # - Call the update function on the scrollable frame
+        # - Delete the dummy frame after it is no longer needed.
+        # By adding this dummy widget, it seems to make the update of the
+        # scrollable frame also update the scrollbar to the correct range.
+        # Without it, this does not work!
+        if len(self.entries) == 0:
+            dummy_frame = ctk.CTkFrame(master=self.scrollable_frame)
+            dummy_frame.grid(row=0, column=0)
+            self.scrollable_frame._parent_canvas.yview_moveto(0.0)
+            self.scrollable_frame.update()
+            dummy_frame.destroy()
 
         # Uncheck the checkbox for selecting all entries
         self.select_all_captures_check_box.deselect()
