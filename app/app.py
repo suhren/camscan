@@ -124,7 +124,7 @@ def opencv_to_pil_image(
     )
 
 
-def opencv_to_tk_image(
+def opencv_to_ctk_image(
     image: cv2.Mat,
     width: int = None,
     height: int = None,
@@ -202,7 +202,7 @@ class CaptureEntry:
             master=self.frame,
             fg_color="transparent",
             text=None,
-            command=self.open_image_viewer_dialog,
+            command=self.open_image_viewer_window,
         )
         self.index_label = ctk.CTkLabel(
             master=self.frame,
@@ -226,28 +226,86 @@ class CaptureEntry:
         self.set_current_image(image=image)
 
     def set_current_image(self, image: cv2.Mat):
+        """
+        Update the current displayed image of this Entry. This will not modify
+        the original OpenCV image stored in this object. This will also update
+        the smaller thumbnail picture used in the Entry.
+        :param image: The new OpenCV image to set the current displayed image to
+        """
         self.current_image = image.copy()
-        thumbnail_image = opencv_to_tk_image(image=image, width=230, height=400)
+        thumbnail_image = opencv_to_ctk_image(image=image, width=230, height=400)
         self.image_widget.photo = thumbnail_image
         self.image_widget.configure(image=thumbnail_image)
 
-    def open_image_viewer_dialog(self):
-        width = self.current_image.shape[1]
-        height = self.current_image.shape[0]
-
+    def open_image_viewer_window(self):
+        """
+        Open an image viewer window displaying the current image of this Entry.
+        """
         window = ctk.CTkToplevel()
-        window.geometry(f"{width}x{height}")
+        window.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         window.title(self.name)
 
-        ctk.CTkLabel(
-            master=window,
-            text=None,
-            image=opencv_to_tk_image(image=self.current_image),
-        ).pack()
+        frame_widget = ctk.CTkFrame(master=window)
+        image_widget = ctk.CTkLabel(master=frame_widget, text=None)
 
+        # The current window size. Used to keep track of when it changes
+        current_size = [0, 0]
+
+        def _resize_image():
+            """Resize the image to fill up the frame in the window"""
+            max_width = frame_widget.winfo_width()
+            max_height = frame_widget.winfo_height()
+
+            # At startup, this area might be of size zero. If so, try later
+            if not (max_width > 1 and max_height > 1):
+                return
+
+            # Convert the OpenCV image to a CTkImage to display in the widget
+            new_image = opencv_to_ctk_image(
+                image=self.current_image, width=max_width, height=max_height
+            )
+            image_widget.photo = new_image
+            image_widget.configure(image=new_image)
+
+        def _on_window_resize(event):
+            # We need to make sure that the only widget that is allowed to
+            # trigger the image resizing is the window itself. Otherwise, when
+            # we update the image size, the image widget itself will generate
+            # a 'Configure' event which will trigger this function again. That
+            # will lead to an endless stream of events.
+            if event.widget == window:
+                return
+            # We are only interested in updating the image size if the window
+            # changes size. This event is also triggered when the window moves,
+            # so we keep track of the current window size and compare to the new
+            # one and update only if it changes.
+            new_size = [event.width, event.height]
+            if current_size == new_size:
+                return
+            # Modify values inplace to keep the reference intact
+            current_size[:] = new_size[:]
+            # Make sure that the containing frame widget has been updated
+            # since it is that size which determines the maximum size of
+            # the displayed image inside. In some cases, like when the user
+            # expands the window to full-screen, this frame might not have
+            # enough time to update before we attempt to update time image
+            # within. Then it is not possible to fully expand the image to
+            # the entire frame size. By manually calling the update here we
+            # can ensure that the frame is the maximum size first.
+            frame_widget.update()
+            _resize_image()
+
+        # Pack the widgets
+        frame_widget.pack(fill=ctk.BOTH, expand=True)
+        image_widget.pack()
+        # Bind an event to when the window changes size to resize the image
+        window.bind("<Configure>", _on_window_resize)
         # Make sure this window is on top of the main window
         window.lift()
         window.attributes("-topmost", True)
+        # It can take some time for the window to set up its widgets and get its
+        # proper size. Therefore, wait a little bit before displaying the image.
+        window.after(ms=100, func=_resize_image)
 
 
 class CamScanApp(ctk.CTk):
@@ -546,11 +604,11 @@ class CamScanApp(ctk.CTk):
             image_height = image.shape[0]
             # If the image is larger than the max widget size, resize it first
             if image_width > max_width or image_height > max_height:
-                image = opencv_to_tk_image(
+                image = opencv_to_ctk_image(
                     image=image, width=max_width, height=max_height
                 )
             else:
-                image = opencv_to_tk_image(image=image)
+                image = opencv_to_ctk_image(image=image)
             # Update the camera image widget
             self.camera_image_widget.photo = image
             self.camera_image_widget.configure(image=image)
