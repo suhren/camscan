@@ -25,7 +25,7 @@ HOUGH_THETA = np.pi / 180
 HOUGH_THRESHOLDS = [100, 150, 200]
 HOUGH_MAX_LINES = 16
 MIN_INTERSECTION_ANGLE = 60 * math.pi / 180
-MIN_CONTOUR_AREA_RATIO = 0.25
+MIN_CONTOUR_AREA_RATIO = 0.20
 MIN_CONTOUR_CORNER_DISTANCE = 50
 
 
@@ -350,28 +350,33 @@ def find_best_contour(
     return best_contour, best_mask
 
 
-def extract_contour(image: cv2.Mat, contour: list[tuple[int, int]]) -> cv2.Mat:
+def extract_contour(
+    image: cv2.Mat,
+    contour: list[tuple[int, int]],
+) -> tuple[cv2.Mat, list[tuple[int, int]]]:
     """
     Given an image and a contour, extract the image contained withing the
     contour and apply a perspective transform on it to make it rectangular.
     :param image: The image to extract the contour from
     :param contour: A list of points defining the corners of the contour
-    :return: The extracted perspective-warped image
+    :return: The extracted perspective-warped image and the sorted contour
     """
     # Ensure that the corners of the contour are ordered as
     # (top left, top right, bottom right, bottom left)
-    src = order_contour(contour=contour).astype(np.float32)
+    ordered_contour = order_contour(contour=contour)
+    src = ordered_contour.astype(np.float32)
     (tl, tr, br, bl) = src
     # Find the longest width and height on the sides of the contour
     w = max(euclidean_distance(br, bl), euclidean_distance(tr, tl))
     h = max(euclidean_distance(tr, br), euclidean_distance(tl, bl))
     # Apply the perspective transform to warp the contour image to a rectangle
     dst = np.array([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]])
-    return cv2.warpPerspective(
+    warped = cv2.warpPerspective(
         src=image,
         M=cv2.getPerspectiveTransform(src=src, dst=dst.astype(np.float32)),
         dsize=(int(w), int(h)),
     )
+    return warped, ordered_contour
 
 
 @dataclass
@@ -528,7 +533,7 @@ def main(img: cv2.Mat) -> ScanResult:
     )
 
     # Extract the area within the contour to a separate image
-    warped = extract_contour(image=img, contour=best_contour)
+    warped, best_contour = extract_contour(image=img, contour=best_contour)
 
     return ScanResult(
         debug_images=dict(
