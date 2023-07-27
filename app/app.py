@@ -18,13 +18,13 @@ import numpy as np
 import PIL
 import tkinter as tk
 
-from app import postprocessing
+from app import postprocessing, widgets
 from app.camera import Camera
 from camscan import scanner
 import utils
 
 logging.basicConfig(
-    format="%(asctime)s [%(levelname)s]: %(message)s",
+    format="%(asctime)s.%(msecs)03d [%(levelname)s]: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.DEBUG,
 )
@@ -43,6 +43,9 @@ RIGHT_MENU_PAD_X = 10
 RIGHT_MENU_PAD_Y = 5
 LEFT_MENU_PACK_KWARGS = dict(padx=LEFT_MENU_PAD_X, pady=LEFT_MENU_PAD_Y)
 RIGHT_MENU_PACK_KWARGS = dict(padx=RIGHT_MENU_PAD_X, pady=RIGHT_MENU_PAD_Y)
+
+# Keybind used to capture images with the cameras
+CAPTURE_KEYBIND = "<space>"
 
 # Specify supported file formats when exporting images as separate files.
 # See the OpenCV documentation for more information on the supported file types:
@@ -97,6 +100,44 @@ RESOLUTIONS = [
     "800x600",
     "640x480",
 ]
+
+# Collection of tooltip strings shown for various widgets
+TOOLTIPS = {
+    # Left panel
+    "camera_configuration": (
+        "Open camera configuration for selecting camera and resolution"
+    ),
+    "camera_driver_settings": (
+        "Open camera driver settings dialog (determined by the selected camera)"
+    ),
+    "postprocessing": "Set the postprocessing effect applied to the captured images",
+    "system_appearance": "Set the user interface appearance of the application",
+    "system_ui_scaling": "Set the user interface scale of the application",
+    "free_capture_mode": (
+        "Ignore the document detection algorithm and capture the entire image"
+    ),
+    "two_page_mode": "Split the captured image into equal left and right parts",
+    "capture": (
+        f"Capture an image and save to the captures pane (key bind {CAPTURE_KEYBIND})"
+    ),
+    "export_separate": "Export captures as separate files in a directory",
+    "export_merged": "Export captures as a single merged file",
+    # Right panel
+    "select_all": "Select or deselect all captures",
+    "delete": "Delete the selected captures",
+    # Camera Configuration Window
+    "camera_index": (
+        "Select a camera by choosing its device index. Update this list with available"
+        " devices using the camera identification button."
+    ),
+    "identify_cameras": (
+        "Identify available cameras on the system and populate the camera index list"
+    ),
+    "camera_resolution": "Set the camera resolution from a preset list of resolutions",
+    "custom_camera_resolution": (
+        "Set a custom camera resolution using a string on the form <width>x<height>"
+    ),
+}
 
 
 def opencv_to_pil_image(
@@ -357,7 +398,7 @@ class CamScanApp(ctk.CTk):
         self.camera_settings_label = ctk.CTkLabel(
             self.left_sidebar_frame, text="Camera Settings:", anchor="w"
         )
-        self.camera_selection_button = ctk.CTkButton(
+        self.configure_camera_button = ctk.CTkButton(
             self.left_sidebar_frame,
             text="Configure Camera",
             command=self.configure_camera_event,
@@ -456,7 +497,7 @@ class CamScanApp(ctk.CTk):
         # Organize left menu items
         self.left_sidebar_title_label.pack(padx=LEFT_MENU_PAD_X, pady=20)
         self.camera_settings_label.pack(**LEFT_MENU_PACK_KWARGS)
-        self.camera_selection_button.pack(**LEFT_MENU_PACK_KWARGS)
+        self.configure_camera_button.pack(**LEFT_MENU_PACK_KWARGS)
         self.camera_settings_button.pack(**LEFT_MENU_PACK_KWARGS)
         self.postprocessing_menu_label.pack(**LEFT_MENU_PACK_KWARGS)
         self.postprocessing_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
@@ -541,8 +582,60 @@ class CamScanApp(ctk.CTk):
         self.camera_image_widget.lift()
         self.right_sidebar_frame.grid(row=0, column=2, rowspan=4, sticky="nsew")
 
+        # Tooltips
+        # Left menu
+        widgets.Tooltip(
+            widget=self.configure_camera_button,
+            text=TOOLTIPS["camera_configuration"],
+        )
+        widgets.Tooltip(
+            widget=self.camera_settings_button,
+            text=TOOLTIPS["camera_driver_settings"],
+        )
+        widgets.Tooltip(
+            widget=self.postprocessing_option_menu,
+            text=TOOLTIPS["postprocessing"],
+        )
+        widgets.Tooltip(
+            widget=self.appearance_mode_option_menu,
+            text=TOOLTIPS["system_appearance"],
+        )
+        widgets.Tooltip(
+            widget=self.scaling_option_menu,
+            text=TOOLTIPS["system_ui_scaling"],
+        )
+        widgets.Tooltip(
+            widget=self.free_capture_setting_check_box,
+            text=TOOLTIPS["free_capture_mode"],
+        )
+        widgets.Tooltip(
+            widget=self.two_page_setting_check_box,
+            text=TOOLTIPS["two_page_mode"],
+        )
+        widgets.Tooltip(
+            widget=self.capture_image_button,
+            text=TOOLTIPS["capture"],
+        )
+        widgets.Tooltip(
+            widget=self.export_separate_captures_button,
+            text=TOOLTIPS["export_separate"],
+        )
+        widgets.Tooltip(
+            widget=self.export_merged_captures_button,
+            text=TOOLTIPS["export_merged"],
+        )
+        # Right menu
+        widgets.Tooltip(
+            widget=self.select_all_captures_check_box,
+            text=TOOLTIPS["select_all"],
+        )
+        widgets.Tooltip(
+            widget=self.delete_captures_button,
+            text=TOOLTIPS["delete"],
+        )
+
         # Hotkeys
-        self.bind(sequence="<space>", func=lambda _: self.capture_image())
+        self.bind(sequence=CAPTURE_KEYBIND, func=lambda _: self.capture_image())
 
         self.show_frame()
 
@@ -978,17 +1071,42 @@ class CamScanApp(ctk.CTk):
         # Pack the widgets
         pack_kwargs = dict(padx=10, pady=5)
         camera_index_label.pack(padx=10, pady=(20, 5))
-        camera_index_combobox.pack(**pack_kwargs)
         find_camera_indices_button.pack(**pack_kwargs)
+        camera_index_combobox.pack(**pack_kwargs)
         camera_resolution_label.pack(**pack_kwargs)
         camera_resolution_combobox.pack(**pack_kwargs)
         custom_camera_resolution_label.pack(**pack_kwargs)
         custom_camera_resolution_entry.pack(**pack_kwargs)
         custom_camera_resolution_button.pack(padx=10, pady=(5, 20))
 
+        # Add tooltips
+        widgets.Tooltip(
+            widget=camera_index_combobox,
+            text=TOOLTIPS["camera_index"],
+        )
+        widgets.Tooltip(
+            widget=find_camera_indices_button,
+            text=TOOLTIPS["identify_cameras"],
+        )
+        widgets.Tooltip(
+            widget=camera_resolution_combobox,
+            text=TOOLTIPS["camera_resolution"],
+        )
+        widgets.Tooltip(
+            widget=custom_camera_resolution_button,
+            text=TOOLTIPS["custom_camera_resolution"],
+        )
+
         # Make sure this window is on top of the main window
-        window.lift()
+        # We could simply just set topmost to True and leave it at that, but
+        # that will prevent the Tooltips from working properly. We can instead
+        # set it to topmost temporarily, use grab_set to set focus, and then
+        # set topmost back to False. This brings the window to the front.
+        # From the documentation it seems that using .lift(aboveThis=self) would
+        # work, but I was not able to make that work.
         window.attributes("-topmost", True)
+        window.grab_set()
+        window.attributes("-topmost", False)
 
 
 def change_ui_appearance_event(new_appearance_mode: str):
