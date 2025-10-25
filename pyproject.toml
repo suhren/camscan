@@ -3,6 +3,34 @@
 # verbose regular expressions by Black.  Use [ ] to denote a significant space
 # character.
 
+[project]
+name = "camscan"
+description = "Camscan is an application for scanning documents using a camera connected to your computer."
+readme = {file = "README.md", content-type = "text/markdown"}
+license = { file = "LICENSE.md" }
+dynamic = ["version"]
+requires-python = ">= 3.11"
+dependencies = [
+    "customtkinter",
+    "numpy",
+    "opencv-python",
+    "Pillow",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "pytest",
+    "pyinstaller",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "camscan.__version__"}
+
 # black
 [tool.black]
 line-length = 88
