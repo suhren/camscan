@@ -13,7 +13,6 @@ import numpy as np
 
 import utils
 
-
 RESCALED_HEIGHT = 500.0
 
 BLUR_KSIZE = 13

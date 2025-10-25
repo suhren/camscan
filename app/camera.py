@@ -7,7 +7,6 @@ import platform
 
 import cv2
 
-
 # Depending on the platform, there might be the need to change the API backend
 # preference. For Windows specifically we use DirectShow. Read more here:
 # https://docs.opencv.org/3.4/d8/dfe/classcv_1_1VideoCapture.html

@@ -1,5 +1,5 @@
 """
-Extra widgets and interface elements used by the application. 
+Extra widgets and interface elements used by the application.
 """
 
 import tkinter as tk
