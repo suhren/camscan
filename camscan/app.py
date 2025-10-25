@@ -21,6 +21,7 @@ import tkinter as tk
 from camscan import postprocessing, widgets
 from camscan.camera import Camera
 from camscan import scanner
+from camscan import __app_display_name__, __version__
 import utils
 
 logging.basicConfig(
@@ -28,6 +29,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.DEBUG,
 )
+
+# Define the window title
+WINDOW_TITLE = f"{__app_display_name__} {__version__}"
 
 # Define the initial application window size
 WINDOW_WIDTH = 1536
@@ -376,7 +380,7 @@ class CamScanApp(ctk.CTk):
         self.var_select_all_captures = tk.IntVar(value=0)
 
         # configure window
-        self.title("CamScan")
+        self.title(WINDOW_TITLE)
         self.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
 
         # Configure the grid layout
