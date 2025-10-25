@@ -37,7 +37,11 @@ software available at the [releases section in ths repo](https://github.com/suhr
 
 ## Running as a Python module
 
-You can also run the camera scanner application as a Python module using your own environment:
+You can also run the camera scanner application as a Python module using your own environment.
+
+## Using conda
+
+You can set up a conda environment using the below commands:
 
 ```bash
 conda create -n camscan python=3.11
@@ -46,15 +50,66 @@ pip install -r requirements.txt
 python -m app.app
 ```
 
+**NOTE**: Using anaconda or miniconda only linux will lead to some rendering problems with the TkInter GUI components. Therefore, it is recommended to not use anaconda or miniconda when creating your python environment when using linux. Instead, you can simply install the required Python version yourself, or use another solution like "pyenv" (see further down). 
+
+See the following threads on the subject:
+
+- https://github.com/TomSchimansky/CustomTkinter/issues/1400
+- https://stackoverflow.com/questions/49187741/tkinter-looks-extremely-ugly-in-linux
+- https://github.com/ContinuumIO/anaconda-issues/issues/6833
+
+## Using pyenv
+
+### Installing pyenv
+
+```bash
+# Instructions taken from the pyenv installation guide:
+# https://github.com/pyenv/pyenv?tab=readme-ov-file#linuxunix
+
+# Required to download the pyenv installer
+sudo apt install curl
+
+# Install Pyhon build dependencies
+sudo apt update
+sudo apt install make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl git libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev libzstd-dev
+
+# Download and install pyenv 
+curl -fsSL https://pyenv.run | bash
+
+# Set up your .bashrc file to make pyenv avialable in the shell 
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
+echo '[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
+echo 'eval "$(pyenv init - bash)"' >> ~/.bashrc
+
+# Update the shell environment
+source ~/.bashrc
+```
+
+### Creating a pyenv environment
+
+```bash
+pyenv install 3.11
+pyenv shell 3.11
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+
 ## Build instructions
 
-Build the software as a standalone application using
+Build the software as a standalone application using the following commands.
+
+Some notes:
+
+- To build the application as an executable, you need to also ensure that the "pyinstaller" python module has ben installed.
+- Some imports required by the application might not be collected properly by pyinstaller. To fix this, provide them as "hidden" imports. See [this stackoverflow thread](https://stackoverflow.com/questions/52675162/pyinstaller-doesnt-play-well-with-imagetk-and-tkinter) on the subject
 
 ```bash
 # If you are building on Windows
-pyinstaller --onefile --name camscan-windows app/app.py
+pyinstaller --onefile --name camscan-windows app/app.py --hidden-import "PIL" --hidden-import "PIL._imagingtk" --hidden-import "PIL._tkinter_finder"
 # If you are building on Linux
-pyinstaller --onefile --name camscan-linux app/app.py
+pyinstaller --onefile --name camscan-linux app/app.py --hidden-import "PIL" --hidden-import "PIL._imagingtk" --hidden-import "PIL._tkinter_finder"
 ```
 
 and then find the resulting executable file in `dist/camscan-windows.exe` for Windows, or `dist/camscan-linux` for Linux.
