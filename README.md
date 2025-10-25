@@ -47,7 +47,7 @@ You can set up a conda environment using the below commands:
 conda create -n camscan python=3.11
 conda activate camscan
 pip install -r requirements.txt
-python -m app.app
+python -m camscan.app
 ```
 
 **NOTE**: Using anaconda or miniconda only linux will lead to some rendering problems with the TkInter GUI components. Therefore, it is recommended to not use anaconda or miniconda when creating your python environment when using linux. Instead, you can simply install the required Python version yourself, or use another solution like "pyenv" (see further down). 
@@ -107,9 +107,9 @@ Some notes:
 
 ```bash
 # If you are building on Windows
-pyinstaller --onefile --name camscan-windows app/app.py --hidden-import "PIL" --hidden-import "PIL._imagingtk" --hidden-import "PIL._tkinter_finder"
+pyinstaller --onefile --name camscan-windows camscan/app.py --hidden-import "PIL" --hidden-import "PIL._imagingtk" --hidden-import "PIL._tkinter_finder"
 # If you are building on Linux
-pyinstaller --onefile --name camscan-linux app/app.py --hidden-import "PIL" --hidden-import "PIL._imagingtk" --hidden-import "PIL._tkinter_finder"
+pyinstaller --onefile --name camscan-linux camscan/app.py --hidden-import "PIL" --hidden-import "PIL._imagingtk" --hidden-import "PIL._tkinter_finder"
 ```
 
 and then find the resulting executable file in `dist/camscan-windows.exe` for Windows, or `dist/camscan-linux` for Linux.

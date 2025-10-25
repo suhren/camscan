@@ -83,7 +83,7 @@ def test_order_contour(contour: np.ndarray, expected_contour: np.ndarray):
     in the order [Top Left, Top Right, Bottom Right, Bottom Left].
     """
     actual_contour = scanner.order_contour(contour=contour)
-    np.testing.assert_array_equal(x=actual_contour, y=expected_contour)
+    np.testing.assert_array_equal(actual=actual_contour, desired=expected_contour)
 
 
 @pytest.mark.parametrize(

@@ -18,8 +18,8 @@ import numpy as np
 import PIL
 import tkinter as tk
 
-from app import postprocessing, widgets
-from app.camera import Camera
+from camscan import postprocessing, widgets
+from camscan.camera import Camera
 from camscan import scanner
 import utils
 
