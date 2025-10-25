@@ -11,7 +11,7 @@ import collections
 import cv2
 import numpy as np
 
-import utils
+from camscan.utils import resize_with_aspect_ratio, draw_contour
 
 
 RESCALED_HEIGHT = 500.0
@@ -405,7 +405,7 @@ def main(img: cv2.Mat) -> ScanResult:
     # detect this overall shape, small details are therefore best avoided. The
     # image can then be resized to a lower resolution, with the added benefit of
     # also speeding up the algorithm as it is faster to process.
-    img_scale = utils.resize_with_aspect_ratio(
+    img_scale = resize_with_aspect_ratio(
         image=img,
         height=RESCALED_HEIGHT,
     )
@@ -527,7 +527,7 @@ def main(img: cv2.Mat) -> ScanResult:
     # Scale the best contour back to the original input image scale
     best_contour = (best_contour * original_scale).astype(np.int32)
 
-    img_hough_best_contour = utils.draw_contour(
+    img_hough_best_contour = draw_contour(
         image=img,
         contour=best_contour,
     )

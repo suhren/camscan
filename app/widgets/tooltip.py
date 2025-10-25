@@ -1,5 +1,5 @@
 """
-Extra widgets and interface elements used by the application. 
+Tooltip widget with a text box shown when hovering over another widget.
 """
 
 import tkinter as tk
@@ -27,7 +27,7 @@ class Tooltip:
         text: str,
         x_offset: int = 16,
         y_offset: int = 16,
-        font_size: int = 14,
+        font_size: int = 12,
         padx: int = 10,
         pady: int = 5,
         wraplength: int = 200,
