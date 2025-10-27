@@ -46,17 +46,17 @@ You can set up a conda environment using the below commands:
 ```bash
 conda create -n camscan python=3.11
 conda activate camscan
-pip install -r requirements.txt
+pip install -r requirements_PLATFORM.txt
 python -m camscan.app
 ```
 
-**NOTE**: Using anaconda or miniconda only linux will lead to some rendering problems with the TkInter GUI components. Therefore, it is recommended to not use anaconda or miniconda when creating your python environment when using linux. Instead, you can simply install the required Python version yourself, or use another solution like "pyenv" (see further down). 
+**NOTE**: Using anaconda or miniconda only linux will lead to some rendering problems with the TkInter GUI components. Therefore, it is recommended to not use anaconda or miniconda when creating your python environment when using linux. Instead, you can simply install the required Python version yourself, or use another solution like "pyenv" (see further down).
 
 See the following threads on the subject:
 
-- https://github.com/TomSchimansky/CustomTkinter/issues/1400
-- https://stackoverflow.com/questions/49187741/tkinter-looks-extremely-ugly-in-linux
-- https://github.com/ContinuumIO/anaconda-issues/issues/6833
+- <https://github.com/TomSchimansky/CustomTkinter/issues/1400>
+- <https://stackoverflow.com/questions/49187741/tkinter-looks-extremely-ugly-in-linux>
+- <https://github.com/ContinuumIO/anaconda-issues/issues/6833>
 
 ## Using pyenv
 
@@ -92,9 +92,8 @@ pyenv install 3.11
 pyenv shell 3.11
 python -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements_PLATFORM.txt
 ```
-
 
 ## Build instructions
 
