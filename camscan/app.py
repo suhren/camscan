@@ -30,7 +30,7 @@ from camscan import (
     utils,
     widgets,
 )
-from camscan.camera import Camera
+from camscan.camera import Camera, get_available_cameras
 from camscan.logging import logger
 from camscan.model.model import (
     BaseModel,
@@ -154,12 +154,12 @@ TOOLTIPS = {
     "select_all": "Select or deselect all captures",
     "delete": "Delete the selected captures",
     # Camera Configuration Window
-    "camera_index": (
-        "Select a camera by choosing its device index. Update this list with available"
+    "camera_name": (
+        "Select a camera by choosing its name. Update this list with available"
         " devices using the camera identification button."
     ),
     "identify_cameras": (
-        "Identify available cameras on the system and populate the camera index list"
+        "Identify available cameras on the system and populate the camera list"
     ),
     "camera_resolution": "Set the camera resolution from a preset list of resolutions",
     "custom_camera_resolution": (
@@ -414,6 +414,9 @@ class CamScanApp(ctk.CTk):
 
         self.camera = Camera()
         self.entries: list[CaptureEntry] = []
+        self.camera_name_to_index_mapping: dict[str, int] = {}
+        self.camera_index_to_name_mapping: dict[int, str] = {}
+        self.camera_names: list[str] = []
         self.var_postprocessing_option = tk.StringVar(
             value=DEFAULT_POSTPROCESSING_OPTION
         )
@@ -724,6 +727,28 @@ class CamScanApp(ctk.CTk):
         self.bind(sequence=CAPTURE_KEYBIND, func=lambda _: self.capture_image())
 
         self.show_frame()
+
+        self.update_available_cameras()
+        if self.camera_names:
+            self.set_camera_by_name(self.camera_names[0])
+
+    def set_camera_by_name(self, name: str) -> None:
+        """Function for changing the camera device"""
+        self.camera.set_index(index=self.camera_name_to_index_mapping[name])
+
+    def update_available_cameras(self) -> None:
+        """Function for updating the available camera device indices"""
+        camera_names = []
+        camera_indices = []
+
+        for camera in get_available_cameras():
+            if camera.index not in camera_indices:
+                camera_indices.append(camera.index)
+                camera_names.append(camera.name)
+
+        self.camera_names = camera_names
+        self.camera_name_to_index_mapping = dict(zip(camera_names, camera_indices))
+        self.camera_index_to_name_mapping = dict(zip(camera_indices, camera_names))
 
     def capture(self) -> ModelResult | None:
         """
@@ -1087,17 +1112,14 @@ class CamScanApp(ctk.CTk):
         separate window with the available configuration.
         """
 
-        def _set_camera_index(index: int) -> None:
-            """Callback for changing the camera device index"""
-            self.camera.set_index(index=int(index))
+        def _identify_available_cameras_event() -> None:
+            """Callback for updating the available cameras"""
+            self.update_available_cameras()
+            camera_name_combobox.configure(values=self.camera_names)
 
-        def _update_available_camera_indices() -> None:
-            """Callback for updating the available camera device indices"""
-            camera_indices = self.camera.get_available_device_indices()
-            camera_index_combobox.configure(values=list(map(str, camera_indices)))
-            if camera_indices:
-                camera_index_combobox.set(value=str(camera_indices[0]))
-                _set_camera_index(camera_indices[0])
+            if self.camera_names:
+                camera_name_combobox.set(value=self.camera_names[0])
+                self.set_camera_by_name(self.camera_names[0])
 
         def _set_camera_resolution(resolution_string: str) -> None:
             """Set the camera resolution from a resolution string"""
@@ -1120,28 +1142,29 @@ class CamScanApp(ctk.CTk):
         window.title("Camera Configuration")
 
         # Define the variables
-        possible_camera_indices = list(map(str, range(10)))
         current_resolution_string = "x".join(map(str, self.camera.resolution))
-        var_camera_index = tk.StringVar(value=possible_camera_indices[0])
+        var_camera_name = tk.StringVar(
+            value=self.camera_index_to_name_mapping.get(self.camera.index, None)
+        )
         var_camera_resolution = tk.StringVar(value=current_resolution_string)
         var_custom_camera_resolution = tk.StringVar(value=current_resolution_string)
 
         # Define the widgets
-        camera_index_label = ctk.CTkLabel(
+        camera_name_label = ctk.CTkLabel(
             master=window,
-            text="Select Camera Index:",
+            text="Select Camera:",
         )
-        camera_index_combobox = ctk.CTkOptionMenu(
+        camera_name_combobox = ctk.CTkOptionMenu(
             master=window,
-            values=possible_camera_indices,
-            command=_set_camera_index,
+            values=self.camera_names,
+            command=self.set_camera_by_name,
             state="readonly",
-            variable=var_camera_index,
+            variable=var_camera_name,
         )
         find_camera_indices_button = ctk.CTkButton(
             master=window,
-            text="Identify Cameras",
-            command=_update_available_camera_indices,
+            text="Identify Available Cameras",
+            command=_identify_available_cameras_event,
         )
         camera_resolution_label = ctk.CTkLabel(
             master=window,
@@ -1171,9 +1194,9 @@ class CamScanApp(ctk.CTk):
 
         # Pack the widgets
         pack_kwargs = {"padx": 10, "pady": 5}
-        camera_index_label.pack(padx=10, pady=(20, 5))
+        camera_name_label.pack(padx=10, pady=(20, 5))
         find_camera_indices_button.pack(**pack_kwargs)
-        camera_index_combobox.pack(**pack_kwargs)
+        camera_name_combobox.pack(**pack_kwargs)
         camera_resolution_label.pack(**pack_kwargs)
         camera_resolution_combobox.pack(**pack_kwargs)
         custom_camera_resolution_label.pack(**pack_kwargs)
@@ -1182,8 +1205,8 @@ class CamScanApp(ctk.CTk):
 
         # Add tooltips
         widgets.Tooltip(
-            widget=camera_index_combobox,
-            text=TOOLTIPS["camera_index"],
+            widget=camera_name_combobox,
+            text=TOOLTIPS["camera_name"],
         )
         widgets.Tooltip(
             widget=find_camera_indices_button,

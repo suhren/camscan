@@ -3,8 +3,10 @@ This module provides an abstracted Camera class wrapping OpenCV video capture.
 """
 
 import platform
+from dataclasses import dataclass
 
 import cv2
+from cv2_enumerate_cameras import enumerate_cameras
 
 from camscan.logging import logger
 
@@ -22,6 +24,37 @@ class CameraError(Exception):
     """
     Error raised when there is a problem with the camera.
     """
+
+
+@dataclass
+class CameraInfo:
+    """
+    Helper class keeping track of camera names and indices.
+    """
+
+    index: int
+    name: str
+
+
+def get_available_cameras() -> list[CameraInfo]:
+    """
+    Get a list of available cameras.
+    :return: _description_
+    :rtype: list[CameraInfo]
+    """
+    # NOTE: We need to use API_PREFERENCE set correctly on Windows to get the
+    # correct camera indices to be used by opencv. These indices may seem
+    # strange, since opencv defaults to using the high digits of index to
+    # represent the backend. For example, 701 indicates the second camera on the
+    # DSHOW backend (700).
+    # See https://github.com/lukehugh/cv2_enumerate_cameras/blob/v1.3.0/README.md
+    return [
+        CameraInfo(
+            index=info.index,
+            name=info.name,
+        )
+        for info in enumerate_cameras(apiPreference=API_PREFERENCE)
+    ]
 
 
 class Camera:
@@ -103,25 +136,3 @@ class Camera:
             return None
 
         return img_capture
-
-    def get_available_device_indices(self) -> list[int]:
-        """
-        Identify cameras available to OpenCV by naively attempting to initiate
-        video capture on a range of device indices and saving the ones that
-        successfully open.
-        :return: A list of device indices where the video capture was successful
-        """
-        found_camera_indices = []
-        for index in range(10):
-            dummy_capture = cv2.VideoCapture(
-                index=index,
-                apiPreference=API_PREFERENCE,
-            )
-            if dummy_capture.isOpened():
-                found_camera_indices.append(index)
-            dummy_capture.release()
-
-        # Ensure the camera is still properly initiated after opening captures
-        self.initialize()
-
-        return found_camera_indices
