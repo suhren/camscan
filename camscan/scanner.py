@@ -364,7 +364,7 @@ def extract_contour(
     # (top left, top right, bottom right, bottom left)
     ordered_contour = order_contour(contour=contour)
     src = ordered_contour.astype(np.float32)
-    (tl, tr, br, bl) = src
+    tl, tr, br, bl = src
     # Find the longest width and height on the sides of the contour
     w = max(euclidean_distance(br, bl), euclidean_distance(tr, tl))
     h = max(euclidean_distance(tr, br), euclidean_distance(tl, bl))
