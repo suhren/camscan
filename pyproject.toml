@@ -6,35 +6,26 @@
 [project]
 name = "camscan"
 description = "Camscan is an application for scanning documents using a camera connected to your computer."
-readme = {file = "README.md", content-type = "text/markdown"}
+readme = { file = "README.md", content-type = "text/markdown" }
 license = { file = "LICENSE.md" }
 dynamic = ["version"]
-requires-python = ">= 3.11"
-dependencies = [
-    "customtkinter",
-    "numpy",
-    "opencv-python",
-    "Pillow",
-]
+requires-python = ">= 3.14"
+dependencies = ["customtkinter", "numpy", "opencv-python", "Pillow"]
 
 [project.optional-dependencies]
-dev = [
-    "black",
-    "pytest",
-    "pyinstaller",
-]
+dev = ["black", "pytest", "pyinstaller"]
 
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
-version = { attr = "camscan.__version__"}
+version = { attr = "camscan.__version__" }
 
 # black
 [tool.black]
 line-length = 88
-target-version = ['py36', 'py37', 'py38']
+target-version = ['py314']
 include = '\.pyi?$'
 extend-exclude = '''
 /(

@@ -44,7 +44,7 @@ You can also run the camera scanner application as a Python module using your ow
 You can set up a conda environment using the below commands:
 
 ```bash
-conda create -n camscan python=3.11
+conda create -n camscan python=3.14
 conda activate camscan
 pip install -r requirements_PLATFORM.txt
 python -m camscan.app
@@ -88,8 +88,8 @@ source ~/.bashrc
 ### Creating a pyenv environment
 
 ```bash
-pyenv install 3.11
-pyenv shell 3.11
+pyenv install 3.14
+pyenv shell 3.14
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements_PLATFORM.txt
