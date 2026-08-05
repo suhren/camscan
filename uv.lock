@@ -43,7 +43,7 @@ dependencies = [
     { name = "pillow" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "black" },
     { name = "pyinstaller" },
@@ -52,15 +52,18 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "black", marker = "extra == 'dev'" },
     { name = "customtkinter" },
     { name = "numpy" },
     { name = "opencv-python" },
     { name = "pillow" },
-    { name = "pyinstaller", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "black" },
+    { name = "pyinstaller" },
+    { name = "pytest" },
+]
 
 [[package]]
 name = "click"
