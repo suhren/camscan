@@ -13,7 +13,15 @@ requires-python = ">= 3.14"
 dependencies = ["customtkinter", "numpy", "opencv-python", "Pillow"]
 
 [dependency-groups]
-dev = ["black", "pytest", "pyinstaller"]
+dev = [
+    { include-group = "format" },
+    { include-group = "lint" },
+    { include-group = "test" },
+    "pyinstaller",
+]
+format = ["black"]
+lint = ["flake8"]
+test = ["pytest"]
 
 [build-system]
 requires = ["setuptools"]
