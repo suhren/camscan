@@ -12,7 +12,7 @@ dynamic = ["version"]
 requires-python = ">= 3.14"
 dependencies = ["customtkinter", "numpy", "opencv-python", "Pillow"]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = ["black", "pytest", "pyinstaller"]
 
 [build-system]
