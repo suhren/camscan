@@ -5,30 +5,22 @@ part of the application, as well as the code used to handle, post process, and
 export the captured images.
 """
 
-from datetime import datetime
+import datetime
 import functools
-import logging
 import os
 import re
+import tkinter as tk
 import typing as t
 
 import customtkinter as ctk
 import cv2
 import numpy as np
 import PIL
-import tkinter as tk
 
-from camscan import postprocessing, widgets
-from camscan.camera import Camera
-from camscan import scanner
-from camscan import __app_display_name__, __version__
 import utils
-
-logging.basicConfig(
-    format="%(asctime)s.%(msecs)03d [%(levelname)s]: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.DEBUG,
-)
+from camscan import __app_display_name__, __version__, postprocessing, scanner, widgets
+from camscan.camera import Camera
+from camscan.logging import logger
 
 # Define the window title
 WINDOW_TITLE = f"{__app_display_name__} {__version__}"
@@ -45,8 +37,8 @@ LEFT_MENU_PAD_X = 20
 LEFT_MENU_PAD_Y = 5
 RIGHT_MENU_PAD_X = 10
 RIGHT_MENU_PAD_Y = 5
-LEFT_MENU_PACK_KWARGS = dict(padx=LEFT_MENU_PAD_X, pady=LEFT_MENU_PAD_Y)
-RIGHT_MENU_PACK_KWARGS = dict(padx=RIGHT_MENU_PAD_X, pady=RIGHT_MENU_PAD_Y)
+LEFT_MENU_PACK_KWARGS = {"padx": LEFT_MENU_PAD_X, "pady": LEFT_MENU_PAD_Y}
+RIGHT_MENU_PACK_KWARGS = {"padx": RIGHT_MENU_PAD_X, "pady": RIGHT_MENU_PAD_Y}
 
 # Keybind used to capture images with the cameras
 CAPTURE_KEYBIND = "<space>"
@@ -144,10 +136,17 @@ TOOLTIPS = {
 }
 
 
+def get_timestamp_str() -> str:
+    """
+    Return the current time as a timestamp string.
+    :return: A timestamp string.
+    """
+    return datetime.datetime.now(tz=datetime.UTC).strftime(r"%Y%m%d_%H%M%S_%f")
+
 def opencv_to_pil_image(
     image: cv2.Mat,
-    width: int = None,
-    height: int = None,
+    width: int | None = None,
+    height: int | None = None,
 ) -> PIL.Image:
     """
     Given an OpenCV image, convert to to a PIL image. The function also supports
@@ -168,8 +167,8 @@ def opencv_to_pil_image(
 
 def opencv_to_ctk_image(
     image: cv2.Mat,
-    width: int = None,
-    height: int = None,
+    width: int | None = None,
+    height: int | None = None,
 ) -> ctk.CTkImage:
     """
     Given an OpenCV image, convert to to a CTkImage. The function also supports
@@ -366,7 +365,7 @@ class CamScanApp(ctk.CTk):
         self.camera = Camera()
         self.entries = []
         self.var_postprocessing_option = tk.StringVar(
-            value=list(POSTPROCESSING_OPTIONS.keys())[0]
+            value=next(iter(POSTPROCESSING_OPTIONS.keys()))
         )
         self.var_two_page_mode = tk.IntVar(value=0)
         self.var_free_capture_mode = tk.IntVar(value=0)
@@ -745,7 +744,7 @@ class CamScanApp(ctk.CTk):
             return
 
         # Give the capture a name using a timestamp string
-        timestamp_str = datetime.now().strftime(r"%Y%m%d_%H%M%S_%f")
+        timestamp_str = get_timestamp_str()
 
         # If we are using two-page mode, cut the image into left and right parts
         if self.var_two_page_mode.get():
@@ -808,7 +807,7 @@ class CamScanApp(ctk.CTk):
         j_grid_row = self.entries[j].frame.grid_info()["row"]
 
         # Switch grid positions
-        logging.debug(f"Switching entries in rows {i_grid_row} and {j_grid_row}")
+        logger.debug(f"Switching entries in rows {i_grid_row} and {j_grid_row}")
         self.entries[i].frame.grid(row=j_grid_row)
         self.entries[j].frame.grid(row=i_grid_row)
 
@@ -837,7 +836,7 @@ class CamScanApp(ctk.CTk):
         """
         # Select the entries based on the state of their checkbox variable
         entries_to_delete = [e for e in self.entries if e.var_selected.get()]
-        logging.debug(f"Removing {len(entries_to_delete)} entries")
+        logger.debug(f"Removing {len(entries_to_delete)} entries")
 
         # For each such entry, destroy its frame and remove from the list
         for entry in entries_to_delete:
@@ -891,7 +890,7 @@ class CamScanApp(ctk.CTk):
             return
 
         # Create the name of the output file as a timestamp string
-        timestamp_str = datetime.now().strftime(r"%Y%m%d_%H%M%S")
+        timestamp_str = get_timestamp_str()
         initialfile = f"captures_{timestamp_str}.{file_type}"
 
         # Bring up a dialog asking for the output file path
@@ -949,7 +948,7 @@ class CamScanApp(ctk.CTk):
             return
 
         # Create the name of the output directory as a timestamp string
-        timestamp_str = datetime.now().strftime(r"%Y%m%d_%H%M%S")
+        timestamp_str = get_timestamp_str()
         output_dir = f"{file_dialog_dir}/captures_{timestamp_str}"
         os.makedirs(output_dir, exist_ok=True)
 
@@ -1073,7 +1072,7 @@ class CamScanApp(ctk.CTk):
         )
 
         # Pack the widgets
-        pack_kwargs = dict(padx=10, pady=5)
+        pack_kwargs = {"padx": 10, "pady": 5}
         camera_index_label.pack(padx=10, pady=(20, 5))
         find_camera_indices_button.pack(**pack_kwargs)
         camera_index_combobox.pack(**pack_kwargs)

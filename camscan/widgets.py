@@ -3,6 +3,7 @@ Extra widgets and interface elements used by the application.
 """
 
 import tkinter as tk
+
 import customtkinter as ctk
 
 
@@ -175,12 +176,10 @@ class Tooltip:
             tt_y = tl_y + tl_h - tt_h
 
         # If the tooltip is too far to the left, snap it back to the right
-        if tt_x < tl_x:
-            tt_x = tl_x
+        tt_x = max(tt_x, tl_x)
 
         # If the tooltip is too far up, snap it back down
-        if tt_y < tl_y:
-            tt_y = tl_y
+        tt_y = max(tt_y, tl_y)
 
         # Final check: The tooltip window is not allowed to be on top of the
         # cursor, so move it down a bit if that happens

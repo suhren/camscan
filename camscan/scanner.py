@@ -3,10 +3,10 @@ This module defines the algorithm for detecting and extracting documents from
 images and its related parameters and helper functions.
 """
 
-import math
-import itertools
-from dataclasses import dataclass
 import collections
+import itertools
+import math
+from dataclasses import dataclass
 
 import cv2
 import numpy as np
@@ -145,7 +145,7 @@ def find_cycles(graph: list[set[int]], length: int) -> list[list[int]]:
         forward_cycle.rotate(-forward_cycle.index(min(forward_cycle)))
         reverse_cycle.rotate(-reverse_cycle.index(min(reverse_cycle)))
         # Sorting ensures that we take the cycle with lowest two start indices
-        cycle = sorted([tuple(forward_cycle), tuple(reverse_cycle)])[0]
+        cycle = min([tuple(forward_cycle), tuple(reverse_cycle)])
         if cycle not in deduplicated_cycles:
             deduplicated_cycles.append(cycle)
 
@@ -468,18 +468,18 @@ def main(img: cv2.Mat) -> ScanResult:
     # Return if no lines were found in the Hough Transform
     if lines is None:
         return ScanResult(
-            debug_images=dict(
-                img=img,
-                img_scale=img_scale,
-                img_scale_gray=img_scale_gray,
-                img_scale_gray_blur=img_scale_gray_blur,
-                img_scale_gray_blur_dilated=img_scale_gray_blur_dilated,
-                img_edge=img_edge,
-                img_hough_preview=None,
-                img_hough_best_contour=None,
-                best_mask=None,
-                warped=None,
-            ),
+            debug_images={
+                "img": img,
+                "img_scale": img_scale,
+                "img_scale_gray": img_scale_gray,
+                "img_scale_gray_blur": img_scale_gray_blur,
+                "img_scale_gray_blur_dilated": img_scale_gray_blur_dilated,
+                "img_edge": img_edge,
+                "img_hough_preview": None,
+                "img_hough_best_contour": None,
+                "best_mask": None,
+                "warped": None,
+            },
             contour=None,
             warped=None,
         )
@@ -507,18 +507,18 @@ def main(img: cv2.Mat) -> ScanResult:
     # Return if no best contour could be found
     if best_contour is None:
         return ScanResult(
-            debug_images=dict(
-                img=img,
-                img_scale=img_scale,
-                img_scale_gray=img_scale_gray,
-                img_scale_gray_blur=img_scale_gray_blur,
-                img_scale_gray_blur_dilated=img_scale_gray_blur_dilated,
-                img_edge=img_edge,
-                img_hough_preview=img_hough_preview,
-                img_hough_best_contour=None,
-                best_mask=None,
-                warped=None,
-            ),
+            debug_images={
+                "img": img,
+                "img_scale": img_scale,
+                "img_scale_gray": img_scale_gray,
+                "img_scale_gray_blur": img_scale_gray_blur,
+                "img_scale_gray_blur_dilated": img_scale_gray_blur_dilated,
+                "img_edge": img_edge,
+                "img_hough_preview": img_hough_preview,
+                "img_hough_best_contour": None,
+                "best_mask": None,
+                "warped": None,
+            },
             contour=None,
             warped=None,
         )
@@ -535,18 +535,18 @@ def main(img: cv2.Mat) -> ScanResult:
     warped, best_contour = extract_contour(image=img, contour=best_contour)
 
     return ScanResult(
-        debug_images=dict(
-            img=img,
-            img_scale=img_scale,
-            img_scale_gray=img_scale_gray,
-            img_scale_gray_blur=img_scale_gray_blur,
-            img_scale_gray_blur_dilated=img_scale_gray_blur_dilated,
-            img_edge=img_edge,
-            img_hough_preview=img_hough_preview,
-            img_hough_best_contour=img_hough_best_contour,
-            best_mask=best_mask,
-            warped=warped,
-        ),
+        debug_images={
+            "img": img,
+            "img_scale": img_scale,
+            "img_scale_gray": img_scale_gray,
+            "img_scale_gray_blur": img_scale_gray_blur,
+            "img_scale_gray_blur_dilated": img_scale_gray_blur_dilated,
+            "img_edge": img_edge,
+            "img_hough_preview": img_hough_preview,
+            "img_hough_best_contour": img_hough_best_contour,
+            "best_mask": best_mask,
+            "warped": warped,
+        },
         contour=best_contour,
         warped=warped,
     )

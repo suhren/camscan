@@ -1,7 +1,7 @@
 import math
 
-import numpy as np
 import cv2
+import numpy as np
 
 
 def draw_contour(
@@ -111,7 +111,7 @@ def images_in_grid(
             ] = scaled_img
 
         if image_labels:
-            (label_width, label_height), baseline = cv2.getTextSize(
+            (_label_width, label_height), baseline = cv2.getTextSize(
                 text=image_labels[i],
                 fontFace=cv2.FONT_HERSHEY_DUPLEX,
                 fontScale=1,

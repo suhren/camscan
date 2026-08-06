@@ -2,10 +2,11 @@
 This module provides an abstracted Camera class wrapping OpenCV video capture.
 """
 
-import logging
 import platform
 
 import cv2
+
+from camscan.logging import logger
 
 # Depending on the platform, there might be the need to change the API backend
 # preference. For Windows specifically we use DirectShow. Read more here:
@@ -53,7 +54,7 @@ class Camera:
         self._video_capture.set(cv2.CAP_PROP_FPS, self.target_fps)
 
         if not self._video_capture.isOpened():
-            logging.error("Cannot open camera")
+            logger.error("Cannot open camera")
 
     def set_index(self, index: int):
         """
