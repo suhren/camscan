@@ -3,13 +3,15 @@ import math
 import cv2
 import numpy as np
 
+from camscan import types
+
 
 def draw_contour(
-    image: cv2.Mat,
-    contour: np.ndarray,
-    color: tuple = (0, 255, 0),
+    image: types.Image,
+    contour: types.Contour,
+    color: types.Color = (0, 255, 0),
     thickness: int = 4,
-) -> cv2.Mat:
+) -> types.Image:
     return cv2.polylines(
         img=image.copy(),
         pts=[contour],
@@ -19,12 +21,17 @@ def draw_contour(
     )
 
 
-def resize_with_aspect_ratio(image, width=None, height=None, inter=cv2.INTER_AREA):
-    h, w = image.shape[:2]
-
+def resize_with_aspect_ratio(
+    image: types.Image,
+    width: float | None = None,
+    height: float | None = None,
+    inter: int = cv2.INTER_AREA,
+):
     # No resizing needed
     if width is None and height is None:
         return image
+
+    h, w = image.shape[:2]
 
     # Resize to the smallest of both width and height
     if width is not None and height is not None:
@@ -35,15 +42,15 @@ def resize_with_aspect_ratio(image, width=None, height=None, inter=cv2.INTER_ARE
         else:
             dim = (int(width), int(h * rw))
 
-    elif width is None:
+    elif height is not None:
         r = height / float(h)
         dim = (int(w * r), int(height))
-    else:
+
+    elif width is not None:
         r = width / float(w)
         dim = (int(width), int(h * r))
 
-    resized = cv2.resize(image, dim, interpolation=inter)
-    return resized
+    return cv2.resize(image, dim, interpolation=inter)
 
 
 def images_in_grid(

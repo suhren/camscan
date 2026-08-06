@@ -11,11 +11,12 @@ import os
 import re
 import tkinter as tk
 import typing as t
+from tkinter import messagebox as tk_messagebox
 
 import customtkinter as ctk
 import cv2
 import numpy as np
-import PIL
+from PIL import Image as PIL_Image
 
 import utils
 from camscan import __app_display_name__, __version__, postprocessing, scanner, widgets
@@ -143,11 +144,12 @@ def get_timestamp_str() -> str:
     """
     return datetime.datetime.now(tz=datetime.UTC).strftime(r"%Y%m%d_%H%M%S_%f")
 
+
 def opencv_to_pil_image(
-    image: cv2.Mat,
+    image: cv2.typing.MatLike,
     width: int | None = None,
     height: int | None = None,
-) -> PIL.Image:
+) -> PIL_Image.Image:
     """
     Given an OpenCV image, convert to to a PIL image. The function also supports
     resizing the image while keeping its original aspect ratio.
@@ -156,7 +158,7 @@ def opencv_to_pil_image(
     :param width: Optional height to scale the image to
     :return: The image converted to a PIL image
     """
-    return PIL.Image.fromarray(
+    return PIL_Image.fromarray(
         utils.resize_with_aspect_ratio(
             image=cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
             width=width,
@@ -166,7 +168,7 @@ def opencv_to_pil_image(
 
 
 def opencv_to_ctk_image(
-    image: cv2.Mat,
+    image: cv2.typing.MatLike,
     width: int | None = None,
     height: int | None = None,
 ) -> ctk.CTkImage:
@@ -199,7 +201,7 @@ class CaptureEntry:
 
     def __init__(
         self,
-        image: cv2.Mat,
+        image: cv2.typing.MatLike,
         name: str,
         index: int,
         master: ctk.CTkBaseClass,
@@ -266,7 +268,7 @@ class CaptureEntry:
 
         self.set_current_image(image=image)
 
-    def set_current_image(self, image: cv2.Mat):
+    def set_current_image(self, image: cv2.typing.MatLike):
         """
         Update the current displayed image of this Entry. This will not modify
         the original OpenCV image stored in this object. This will also update
@@ -642,7 +644,9 @@ class CamScanApp(ctk.CTk):
 
         self.show_frame()
 
-    def capture(self) -> tuple[cv2.Mat, cv2.Mat, np.ndarray]:
+    def capture(
+        self,
+    ) -> tuple[cv2.typing.MatLike | None, cv2.typing.MatLike | None, np.ndarray | None]:
         """
         Capture an image from the camera and run the document detection
         algorithm on the resulting image.
@@ -725,7 +729,7 @@ class CamScanApp(ctk.CTk):
             if full_image is not None:
                 image = full_image
             else:
-                tk.messagebox.showerror(
+                tk_messagebox.showerror(
                     title="Error",
                     message="Could not capture an image from the Camera.",
                 )
@@ -734,7 +738,7 @@ class CamScanApp(ctk.CTk):
         elif warped_image is not None:
             image = warped_image
         else:
-            tk.messagebox.showerror(
+            tk_messagebox.showerror(
                 title="Error",
                 message=(
                     "Could not extract the document image from the Camera. "

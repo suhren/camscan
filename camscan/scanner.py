@@ -6,12 +6,14 @@ images and its related parameters and helper functions.
 import collections
 import itertools
 import math
+import typing as t
 from dataclasses import dataclass
 
 import cv2
 import numpy as np
 
 import utils
+from camscan import types
 
 RESCALED_HEIGHT = 500.0
 
@@ -28,7 +30,7 @@ MIN_CONTOUR_AREA_RATIO = 0.20
 MIN_CONTOUR_CORNER_DISTANCE = 50
 
 
-def euclidean_distance(p1: tuple[int, int], p2: tuple[int, int]) -> float:
+def euclidean_distance(p1: types.Point, p2: types.Point) -> float:
     """
     Calculate the euclidean distance between two points.
     :param p1: The first point on the form (x, y)
@@ -39,11 +41,11 @@ def euclidean_distance(p1: tuple[int, int], p2: tuple[int, int]) -> float:
 
 
 def draw_hough_lines(
-    image: cv2.Mat,
-    lines: np.ndarray,
-    color: tuple = (0, 255, 0),
+    image: types.Image,
+    lines: t.Iterable[types.Line],
+    color: types.Color = (0, 255, 0),
     thickness: int = 2,
-) -> cv2.Mat:
+) -> cv2.typing.MatLike:
     """
     Given an input image, draw lines expressed in Hesse normal form produced by
     the Hough Transform onto it.
@@ -67,8 +69,11 @@ def draw_hough_lines(
 
 
 def intersection(
-    rho1: float, theta1: float, rho2: float, theta2: float
-) -> tuple[int, int]:
+    rho1: float,
+    theta1: float,
+    rho2: float,
+    theta2: float,
+) -> types.Point:
     """
     Finds the intersection of two lines expressed in Hesse normal form produced
     by the Hough Transform. See https://en.wikipedia.org/wiki/Hough_transform
@@ -125,7 +130,7 @@ def find_cycles(graph: list[set[int]], length: int) -> list[list[int]]:
 
     all_found_cycles = []
     for i in range(len(graph)):
-        cycles = []
+        cycles: list[list[int]] = []
         _find_cycles_recursive(
             graph,
             length=length,
@@ -145,7 +150,9 @@ def find_cycles(graph: list[set[int]], length: int) -> list[list[int]]:
         forward_cycle.rotate(-forward_cycle.index(min(forward_cycle)))
         reverse_cycle.rotate(-reverse_cycle.index(min(reverse_cycle)))
         # Sorting ensures that we take the cycle with lowest two start indices
-        cycle = min([tuple(forward_cycle), tuple(reverse_cycle)])
+        # NOTE: Taking the min() of two lists of integers will return the list with the
+        # lowest first element values
+        cycle = min([list(forward_cycle), list(reverse_cycle)])
         if cycle not in deduplicated_cycles:
             deduplicated_cycles.append(cycle)
 
@@ -200,7 +207,7 @@ def find_contours(
     max_x: int,
     max_y: int,
     min_corner_distance: float = MIN_CONTOUR_CORNER_DISTANCE,
-) -> list[list[tuple[int, int]]]:
+) -> list[types.Contour]:
     """
     Given lines expressed in Hesse normal form produced by the Hough Transform,
     find the corners of four-sided polygons made up of their intersections.
@@ -244,7 +251,7 @@ def find_contours(
     return [intersections[index_list] for index_list in cycles]
 
 
-def order_contour(contour: np.ndarray) -> np.ndarray:
+def order_contour(contour: types.Contour) -> types.Contour:
     """
     Sort a contour of four corners such that they will be ordered as
     [top left, top right, bottom right, bottom left].
@@ -275,9 +282,9 @@ def order_contour(contour: np.ndarray) -> np.ndarray:
 
 
 def find_best_contour(
-    contours: list[list[tuple[int, int]]],
-    image_edged: cv2.Mat = None,
-    image: cv2.Mat = None,
+    contours: list[np.ndarray],
+    image_edged: cv2.typing.MatLike | None = None,
+    image: cv2.typing.MatLike | None = None,
 ):
     """
     Given a list of contours, score them according to some metric and filter out
@@ -321,11 +328,12 @@ def find_best_contour(
                 contourIdx=-1,
                 color=255,
                 thickness=16,
-            )
+            ).astype(int)
 
             mask = image_edged & mask
             score = mask.sum()
-        else:
+
+        elif image is not None:
             mask = cv2.drawContours(
                 image=np.zeros(shape=image.shape, dtype=np.uint8),
                 contours=[contour],
@@ -350,9 +358,9 @@ def find_best_contour(
 
 
 def extract_contour(
-    image: cv2.Mat,
-    contour: list[tuple[int, int]],
-) -> tuple[cv2.Mat, list[tuple[int, int]]]:
+    image: types.Image,
+    contour: types.Contour,
+) -> tuple[types.Image, types.Contour]:
     """
     Given an image and a contour, extract the image contained withing the
     contour and apply a perspective transform on it to make it rectangular.
@@ -387,12 +395,12 @@ class ScanResult:
     :param warped: The extracted document inside the detected contour
     """
 
-    debug_images: dict[str, cv2.Mat]
-    contour: np.ndarray
-    warped: cv2.Mat
+    debug_images: dict[str, types.Image | None]
+    contour: types.Contour | None
+    warped: types.Image | None
 
 
-def main(img: cv2.Mat) -> ScanResult:
+def main(img: types.Image) -> ScanResult:
     """
     Detect and extract a document found in the input image.
     :param img: The input image to detect and extract the document
@@ -550,7 +558,3 @@ def main(img: cv2.Mat) -> ScanResult:
         contour=best_contour,
         warped=warped,
     )
-
-
-if __name__ == "__main__":
-    main()

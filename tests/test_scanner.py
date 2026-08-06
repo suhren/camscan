@@ -46,9 +46,9 @@ def test_find_cycles(
     Test the functionality of the cycle finder on some test graphs.
     """
     actual_cycles = scanner.find_cycles(graph=graph, length=length)
-    actual_cycles = sorted(map(tuple, actual_cycles))
-    expected_cycles = sorted(map(tuple, expected_cycles))
-    assert actual_cycles == expected_cycles
+    sorted_actual_cycles = sorted([tuple(x) for x in actual_cycles])
+    sorted_expected_cycles = sorted([tuple(x) for x in expected_cycles])
+    assert sorted_actual_cycles == sorted_expected_cycles
 
 
 @pytest.mark.parametrize(
@@ -107,12 +107,13 @@ def test_order_contour(contour: np.ndarray, expected_contour: np.ndarray):
         ],
     ],
 )
-def test_scanner(image_file: str, expected_contour: list[tuple[int, int]]):
+def test_scanner(image_file: str, expected_contour: np.ndarray):
     """
     Test the algorithm's ability to accurately detect the contour corners of
     a few test images.
     """
     image = cv2.imread(image_file)
+    assert image is not None
     scan_result = scanner.main(img=image)
     actual_contour = scan_result.contour
     assert actual_contour is not None, "No contour produced"
