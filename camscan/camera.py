@@ -23,6 +23,7 @@ class CameraError(Exception):
     Error raised when there is a problem with the camera.
     """
 
+
 class Camera:
     """
     A class representing a video camera. It mainly wraps and abstracts an OpenCV
@@ -42,10 +43,10 @@ class Camera:
         self.index = index
         self.resolution = resolution
         self.target_fps = target_fps
-        self._video_capture = None
+        self._video_capture: cv2.VideoCapture | None = None
         self.initialize()
 
-    def initialize(self):
+    def initialize(self) -> None:
         """
         Initialize the camera by opening a video capture feed using settings
         like resolution and framerate specified in this instance.
@@ -61,7 +62,7 @@ class Camera:
         if not self._video_capture.isOpened():
             logger.error("Cannot open camera")
 
-    def set_index(self, index: int):
+    def set_index(self, index: int) -> None:
         """
         Set the OpenCV device indexof the camera.
         :param index: A device index of the desired camera
@@ -69,7 +70,7 @@ class Camera:
         self.index = index
         self.initialize()
 
-    def set_resolution(self, resolution: tuple[int, int]):
+    def set_resolution(self, resolution: tuple[int, int]) -> None:
         """
         Set the capture resolution of the camera.
         :param resolution: A tuple of the resolution on the form (width, height)
@@ -77,21 +78,25 @@ class Camera:
         self.resolution = resolution
         self.initialize()
 
-    def show_settings(self):
+    def show_settings(self) -> None:
         """
         Bring up the settings of the camera as a dialog window.
         """
+        if self._video_capture is None:
+            raise CameraError("The VideoCapture object is not inititalized")
+
         self._video_capture.set(cv2.CAP_PROP_SETTINGS, 1)
 
     def capture(self) -> cv2.typing.MatLike | None:
         """
         Capture an image from the video stream and extract documents from it.
+        :raises CameraError: If the VideoCapture is not initialized
         :return: An OpenCV image of the captured frame
         """
 
         if self._video_capture is None:
             raise CameraError("The VideoCapture object is not inititalized")
-    
+
         is_frame_read_correctly, img_capture = self._video_capture.read()
 
         if not is_frame_read_correctly:

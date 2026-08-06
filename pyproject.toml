@@ -17,11 +17,13 @@ dev = [
     { include-group = "ruff" },
     { include-group = "test" },
     { include-group = "mypy" },
+    { include-group = "pydoclint" },
     "pyinstaller",
 ]
 ruff = ["ruff>=0.16.1"]
 test = ["pytest"]
 mypy = ["mypy>=2.3.0", "types-pyinstaller>=6.21.0.20260616"]
+pydoclint = ["pydoclint>=0.9.1"]
 
 [build-system]
 requires = ["setuptools"]
@@ -36,11 +38,23 @@ line-length = 88
 indent-width = 4
 target-version = "py314"
 
+[tool.mypy]
+disallow_untyped_defs = true
+
 [[tool.mypy.overrides]]
 module = [
     "customtkinter", # No stub files available
 ]
 ignore_missing_imports = true
+
+[tool.pydoclint]
+style = "sphinx"
+require-return-section-when-returning-nothing = false
+arg-type-hints-in-signature = true
+arg-type-hints-in-docstring = false
+check-return-types = false
+check-class-attributes = false
+exclude = ".venv"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

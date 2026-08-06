@@ -41,7 +41,7 @@ def test_find_cycles(
     graph: list[set[int]],
     length: int,
     expected_cycles: list[list[int]],
-):
+) -> None:
     """
     Test the functionality of the cycle finder on some test graphs.
     """
@@ -73,7 +73,7 @@ def test_find_cycles(
         ],
     ],
 )
-def test_order_contour(contour: np.ndarray, expected_contour: np.ndarray):
+def test_order_contour(contour: np.ndarray, expected_contour: np.ndarray) -> None:
     """
     Test the function to order a contour of four corners so that they will be
     in the order [Top Left, Top Right, Bottom Right, Bottom Left].
@@ -107,7 +107,7 @@ def test_order_contour(contour: np.ndarray, expected_contour: np.ndarray):
         ],
     ],
 )
-def test_scanner(image_file: str, expected_contour: np.ndarray):
+def test_scanner(image_file: str, expected_contour: np.ndarray) -> None:
     """
     Test the algorithm's ability to accurately detect the contour corners of
     a few test images.

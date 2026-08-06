@@ -26,7 +26,7 @@ def resize_with_aspect_ratio(
     width: float | None = None,
     height: float | None = None,
     inter: int = cv2.INTER_AREA,
-):
+) -> types.Image:
     # No resizing needed
     if width is None and height is None:
         return image
@@ -59,7 +59,8 @@ def images_in_grid(
     output_height: int,
     draw_grid: bool = True,
     grid_color: tuple = (255, 255, 255),
-):
+) -> types.Image:
+
     num_images = len(images)
 
     if num_images == 1:
