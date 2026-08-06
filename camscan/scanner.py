@@ -329,7 +329,7 @@ def find_best_contour(
                 contourIdx=-1,
                 color=255,
                 thickness=16,
-            ).astype(int)
+            )
 
             mask = image_edged & mask
             score = mask.sum()
@@ -388,15 +388,29 @@ def extract_contour(
 
 
 @dataclass
+class DebugImage:
+    """
+    Helper class that contains a debug image and name.
+    :param name: The name of the image
+    :param img: The image
+    """
+
+    name: str
+    img: types.Image | None
+
+
+@dataclass
 class ScanResult:
     """
     Helper class that contains the result of the document scanner output.
-    :param debug_images: Dictionary of intermediate images of the algorithm
+    :param img: The input image
+    :param debug_images: List of  of intermediate images of the algorithm
     :param contour: Array with the contour corners of the detected document
     :param warped: The extracted document inside the detected contour
     """
 
-    debug_images: dict[str, types.Image | None]
+    img: types.Image
+    debug_images: list[DebugImage]
     contour: types.Contour | None
     warped: types.Image | None
 
@@ -477,18 +491,21 @@ def main(img: types.Image) -> ScanResult:
     # Return if no lines were found in the Hough Transform
     if lines is None:
         return ScanResult(
-            debug_images={
-                "img": img,
-                "img_scale": img_scale,
-                "img_scale_gray": img_scale_gray,
-                "img_scale_gray_blur": img_scale_gray_blur,
-                "img_scale_gray_blur_dilated": img_scale_gray_blur_dilated,
-                "img_edge": img_edge,
-                "img_hough_preview": None,
-                "img_hough_best_contour": None,
-                "best_mask": None,
-                "warped": None,
-            },
+            img=img,
+            debug_images=[
+                DebugImage(name="img", img=img),
+                DebugImage(name="img_scale", img=img_scale),
+                DebugImage(name="img_scale_gray", img=img_scale_gray),
+                DebugImage(name="img_scale_gray_blur", img=img_scale_gray_blur),
+                DebugImage(
+                    name="img_scale_gray_blur_dilated", img=img_scale_gray_blur_dilated
+                ),
+                DebugImage(name="img_edge", img=img_edge),
+                DebugImage(name="img_hough_preview", img=None),
+                DebugImage(name="img_hough_best_contour", img=None),
+                DebugImage(name="best_mask", img=None),
+                DebugImage(name="warped", img=None),
+            ],
             contour=None,
             warped=None,
         )
@@ -516,18 +533,21 @@ def main(img: types.Image) -> ScanResult:
     # Return if no best contour could be found
     if best_contour is None:
         return ScanResult(
-            debug_images={
-                "img": img,
-                "img_scale": img_scale,
-                "img_scale_gray": img_scale_gray,
-                "img_scale_gray_blur": img_scale_gray_blur,
-                "img_scale_gray_blur_dilated": img_scale_gray_blur_dilated,
-                "img_edge": img_edge,
-                "img_hough_preview": img_hough_preview,
-                "img_hough_best_contour": None,
-                "best_mask": None,
-                "warped": None,
-            },
+            img=img,
+            debug_images=[
+                DebugImage(name="img", img=img),
+                DebugImage(name="img_scale", img=img_scale),
+                DebugImage(name="img_scale_gray", img=img_scale_gray),
+                DebugImage(name="img_scale_gray_blur", img=img_scale_gray_blur),
+                DebugImage(
+                    name="img_scale_gray_blur_dilated", img=img_scale_gray_blur_dilated
+                ),
+                DebugImage(name="img_edge", img=img_edge),
+                DebugImage(name="img_hough_preview", img=img_hough_preview),
+                DebugImage(name="img_hough_best_contour", img=None),
+                DebugImage(name="best_mask", img=None),
+                DebugImage(name="warped", img=None),
+            ],
             contour=None,
             warped=None,
         )
@@ -544,18 +564,21 @@ def main(img: types.Image) -> ScanResult:
     warped, best_contour = extract_contour(image=img, contour=best_contour)
 
     return ScanResult(
-        debug_images={
-            "img": img,
-            "img_scale": img_scale,
-            "img_scale_gray": img_scale_gray,
-            "img_scale_gray_blur": img_scale_gray_blur,
-            "img_scale_gray_blur_dilated": img_scale_gray_blur_dilated,
-            "img_edge": img_edge,
-            "img_hough_preview": img_hough_preview,
-            "img_hough_best_contour": img_hough_best_contour,
-            "best_mask": best_mask,
-            "warped": warped,
-        },
+        img=img,
+        debug_images=[
+            DebugImage(name="img", img=img),
+            DebugImage(name="img_scale", img=img_scale),
+            DebugImage(name="img_scale_gray", img=img_scale_gray),
+            DebugImage(name="img_scale_gray_blur", img=img_scale_gray_blur),
+            DebugImage(
+                name="img_scale_gray_blur_dilated", img=img_scale_gray_blur_dilated
+            ),
+            DebugImage(name="img_edge", img=img_edge),
+            DebugImage(name="img_hough_preview", img=img_hough_preview),
+            DebugImage(name="img_hough_best_contour", img=img_hough_best_contour),
+            DebugImage(name="best_mask", img=best_mask),
+            DebugImage(name="warped", img=warped),
+        ],
         contour=best_contour,
         warped=warped,
     )

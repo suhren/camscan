@@ -37,7 +37,7 @@ class Camera:
     def __init__(
         self,
         index: int = 0,
-        resolution: tuple[int, int] = (3260, 2444),
+        resolution: tuple[int, int] = (800, 600),
         target_fps: int = 30,
     ):
         self.index = index
