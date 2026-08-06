@@ -3,6 +3,7 @@
 [![Code Style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 [![Ruff](https://github.com/suhren/camscan/actions/workflows/ruff.yml/badge.svg)](https://github.com/suhren/camscan/actions/workflows/ruff.yml)
+[![mypy](https://github.com/suhren/camscan/actions/workflows/mypy.yml/badge.svg)](https://github.com/suhren/camscan/actions/workflows/mypy.yml)
 [![PyTest](https://github.com/suhren/camscan/actions/workflows/test.yml/badge.svg)](https://github.com/suhren/camscan/actions/workflows/test.yml)
 
 # Camscan

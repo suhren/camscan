@@ -15,8 +15,13 @@ SYSTEM = platform.system()
 if SYSTEM == "Windows":
     API_PREFERENCE = cv2.CAP_DSHOW
 else:
-    API_PREFERENCE = None
+    API_PREFERENCE = cv2.CAP_ANY
 
+
+class CameraError(Exception):
+    """
+    Error raised when there is a problem with the camera.
+    """
 
 class Camera:
     """
@@ -78,11 +83,15 @@ class Camera:
         """
         self._video_capture.set(cv2.CAP_PROP_SETTINGS, 1)
 
-    def capture(self) -> cv2.Mat:
+    def capture(self) -> cv2.typing.MatLike | None:
         """
         Capture an image from the video stream and extract documents from it.
         :return: An OpenCV image of the captured frame
         """
+
+        if self._video_capture is None:
+            raise CameraError("The VideoCapture object is not inititalized")
+    
         is_frame_read_correctly, img_capture = self._video_capture.read()
 
         if not is_frame_read_correctly:

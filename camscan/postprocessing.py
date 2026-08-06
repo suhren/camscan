@@ -5,7 +5,7 @@ This module provides utility postprocessing functions for images.
 import cv2
 
 
-def dummy(image: cv2.Mat) -> cv2.Mat:
+def dummy(image: cv2.typing.MatLike) -> cv2.typing.MatLike:
     """
     Apply no processing whatsoever and simply return the image again.
     :param image: The input image
@@ -14,7 +14,7 @@ def dummy(image: cv2.Mat) -> cv2.Mat:
     return image
 
 
-def sharpen(image: cv2.Mat) -> cv2.Mat:
+def sharpen(image: cv2.typing.MatLike) -> cv2.typing.MatLike:
     """
     Apply a sharpening effect to the input image.
     :param image: The input image
@@ -35,7 +35,7 @@ def sharpen(image: cv2.Mat) -> cv2.Mat:
     return sharpened
 
 
-def grayscale(image: cv2.Mat) -> cv2.Mat:
+def grayscale(image: cv2.typing.MatLike) -> cv2.typing.MatLike:
     """
     Convert the input image to grayscale.
     :param image: The input image
@@ -44,7 +44,7 @@ def grayscale(image: cv2.Mat) -> cv2.Mat:
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 
-def black_and_white(image: cv2.Mat) -> cv2.Mat:
+def black_and_white(image: cv2.typing.MatLike) -> cv2.typing.MatLike:
     """
     Convert the image to black and white (it looks like a pencil sketch).
     This is done by converting it to grayscale, applying a sharpening effect,
