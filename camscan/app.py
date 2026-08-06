@@ -380,6 +380,7 @@ class CamScanApp(ctk.CTk):
         self.var_postprocessing_option = tk.StringVar(
             value=next(iter(POSTPROCESSING_OPTIONS.keys()))
         )
+        self.var_debug_mode = tk.IntVar(value=0)
         self.var_two_page_mode = tk.IntVar(value=0)
         self.var_free_capture_mode = tk.IntVar(value=0)
         self.var_select_all_captures = tk.IntVar(value=0)
@@ -458,6 +459,16 @@ class CamScanApp(ctk.CTk):
         )
         self.scaling_option_menu.set("100%")
 
+        # Add a menu for debug mode
+        self.debug_mode_label = ctk.CTkLabel(
+            self.left_sidebar_frame, text="Debug Mode:", anchor="w"
+        )
+        self.debug_mode_check_box = ctk.CTkCheckBox(
+            self.left_sidebar_frame,
+            text="Debug Mode",
+            variable=self.var_debug_mode,
+        )
+
         # Add a button for capturing the screen
         self.capture_image_label = ctk.CTkLabel(
             self.left_sidebar_frame, text="Capture Image", anchor="w"
@@ -521,6 +532,7 @@ class CamScanApp(ctk.CTk):
         self.appearance_mode_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
         self.scaling_label.pack(**LEFT_MENU_PACK_KWARGS)
         self.scaling_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
+        self.debug_mode_check_box.pack(**LEFT_MENU_PACK_KWARGS)
         self.capture_image_label.pack(**LEFT_MENU_PACK_KWARGS)
         self.free_capture_setting_check_box.pack(**LEFT_MENU_PACK_KWARGS)
         self.two_page_setting_check_box.pack(**LEFT_MENU_PACK_KWARGS)
@@ -655,28 +667,18 @@ class CamScanApp(ctk.CTk):
 
         self.show_frame()
 
-    def capture(
-        self,
-    ) -> tuple[types.Image | None, types.Image | None, types.Contour | None]:
+    def capture(self) -> scanner.ScanResult | None:
         """
         Capture an image from the camera and run the document detection
         algorithm on the resulting image.
-        :return:
-            A tuple consisting of the raw image, the extracted warped image, and
-            a numpy array describing the contours of the found document. If the
-            video capture could not read a frame successfully, return None.
+        :return: A ScanResult or None if we could not read a frame successfully.
         """
         img_capture = self.camera.capture()
 
         if img_capture is not None:
-            scan_result = scanner.main(img_capture)
-            return (
-                img_capture,
-                scan_result.warped,
-                scan_result.contour,
-            )
+            return scanner.main(img_capture)
 
-        return (None, None, None)
+        return None
 
     def show_frame(self) -> None:
         """
@@ -694,34 +696,50 @@ class CamScanApp(ctk.CTk):
             return
 
         # Capture an image and the resulting detected contour from the camera
-        raw_image, _, contour = self.capture()
+        result = self.capture()
 
-        if raw_image is not None:
-            # Apply the current postprocessing to the image before displaying
-            postprocessing_option = self.var_postprocessing_option.get()
-            postprocessing_function = POSTPROCESSING_OPTIONS[postprocessing_option]
-            image = postprocessing_function(raw_image)
-            # The image must have three color channels, so convert if needed
-            if len(image.shape) == 2:
-                image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-            # If we are using the 'Free Capture' mode, skip drawing the contour
-            if not self.var_free_capture_mode.get() and contour is not None:
-                image = utils.draw_contour(image=image, contour=contour)
-            # Convert the OpenCV image to a CTkImage to display in the widget
-            image_width = image.shape[1]
-            image_height = image.shape[0]
-            # If the image is larger than the max widget size, resize it first
-            if image_width > max_width or image_height > max_height:
-                image = opencv_to_ctk_image(
-                    image=image, width=max_width, height=max_height
+        if result is not None:
+            if self.var_debug_mode.get():
+                debug_images = [x.img for x in result.debug_images]
+                debug_labels = [x.name for x in result.debug_images]
+                debug_image = utils.images_in_grid(
+                    images=debug_images,
+                    labels=debug_labels,
+                    output_width=max_width,
+                    output_height=max_height,
                 )
+                image = opencv_to_ctk_image(image=debug_image)
+                # Update the camera image widget
+                self.camera_image_widget.photo = image
+                self.camera_image_widget.configure(image=image)
+                # Ensure the camera image widget is top of the 'No Camera' widget
+                self.camera_image_widget.lift()
             else:
-                image = opencv_to_ctk_image(image=image)
-            # Update the camera image widget
-            self.camera_image_widget.photo = image
-            self.camera_image_widget.configure(image=image)
-            # Ensure the camera image widget is top of the 'No Camera' widget
-            self.camera_image_widget.lift()
+                # Apply the current postprocessing to the image before displaying
+                postprocessing_option = self.var_postprocessing_option.get()
+                postprocessing_function = POSTPROCESSING_OPTIONS[postprocessing_option]
+                image = postprocessing_function(result.img)
+                # The image must have three color channels, so convert if needed
+                if len(image.shape) == 2:
+                    image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+                # If we are using the 'Free Capture' mode, skip drawing the contour
+                if not self.var_free_capture_mode.get() and result.contour is not None:
+                    image = utils.draw_contour(image=image, contour=result.contour)
+                # Convert the OpenCV image to a CTkImage to display in the widget
+                image_width = image.shape[1]
+                image_height = image.shape[0]
+                # If the image is larger than the max widget size, resize it first
+                if image_width > max_width or image_height > max_height:
+                    image = opencv_to_ctk_image(
+                        image=image, width=max_width, height=max_height
+                    )
+                else:
+                    image = opencv_to_ctk_image(image=image)
+                # Update the camera image widget
+                self.camera_image_widget.photo = image
+                self.camera_image_widget.configure(image=image)
+                # Ensure the camera image widget is top of the 'No Camera' widget
+                self.camera_image_widget.lift()
         else:
             # If there was no image captured, lift the 'No Camera' widget on top
             self.camera_image_label.lift()
@@ -733,21 +751,22 @@ class CamScanApp(ctk.CTk):
         """
         Capture an image using the camera.
         """
-        full_image, warped_image, _ = self.capture()
+        result = self.capture()
+
+        if result is None or result.img is None:
+            tk_messagebox.showerror(
+                title="Error",
+                message="Could not capture an image from the Camera.",
+            )
+            return
 
         # If we are using Free Capture mode, use the full uncropped image
         if self.var_free_capture_mode.get():
-            if full_image is not None:
-                image = full_image
-            else:
-                tk_messagebox.showerror(
-                    title="Error",
-                    message="Could not capture an image from the Camera.",
-                )
-                return
+            image = result.img
+
         # Otherwise, use the warped cropped extracted image
-        elif warped_image is not None:
-            image = warped_image
+        elif result.warped is not None:
+            image = result.warped
         else:
             tk_messagebox.showerror(
                 title="Error",
