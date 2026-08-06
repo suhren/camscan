@@ -54,14 +54,19 @@ def resize_with_aspect_ratio(
 
 
 def images_in_grid(
-    images: list | tuple | dict,
+    images: list[types.Image | None],
     output_width: int,
     output_height: int,
     draw_grid: bool = True,
+    labels: list[str] | None = None,
     grid_color: tuple = (255, 255, 255),
+    fontScale: float = 0.5,
 ) -> types.Image:
 
     num_images = len(images)
+
+    if labels is not None and len(labels) != len(images):
+        raise ValueError("The number of labels must match the number of images")
 
     if num_images == 1:
         num_cols, num_rows = 1, 1
@@ -83,12 +88,6 @@ def images_in_grid(
     subframe_height = int(output_height / num_rows)
 
     output_image = np.zeros((output_height, output_width, 3), np.uint8)
-
-    image_labels = None
-
-    if isinstance(images, dict):
-        image_labels = list(images.keys())
-        images = list(images.values())
 
     for i, img in enumerate(images):
         col = i % num_cols
@@ -118,21 +117,34 @@ def images_in_grid(
                 :,
             ] = scaled_img
 
-        if image_labels:
-            (_label_width, label_height), baseline = cv2.getTextSize(
-                text=image_labels[i],
-                fontFace=cv2.FONT_HERSHEY_DUPLEX,
-                fontScale=1,
-                thickness=2,
+        if labels is not None:
+            text = f"{i + 1}: {labels[i]}"
+
+            (_label_width, label_height), _baseline = cv2.getTextSize(
+                text=text,
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=fontScale,
+                thickness=1,
+            )
+            label_x0 = top_left_x + 10
+            label_x1 = label_x0 + _label_width
+            label_y0 = top_left_y + 10
+            label_y1 = label_y0 + label_height
+            cv2.rectangle(
+                img=output_image,
+                pt1=(label_x0 - 5, label_y0 - 5),
+                pt2=(label_x1 + 5, label_y1 + 5),
+                color=(0, 0, 0),
+                thickness=cv2.FILLED,
             )
             cv2.putText(
                 img=output_image,
-                text=image_labels[i],
-                org=(top_left_x + 10, top_left_y + label_height + baseline),
-                fontFace=cv2.FONT_HERSHEY_DUPLEX,
-                fontScale=1,
+                text=text,
+                org=(label_x0, label_y1),
+                fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                fontScale=fontScale,
                 color=(255, 255, 255),
-                thickness=2,
+                thickness=1,
                 lineType=cv2.LINE_AA,
             )
 
