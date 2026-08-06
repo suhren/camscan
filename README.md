@@ -4,6 +4,7 @@
 
 [![Ruff](https://github.com/suhren/camscan/actions/workflows/ruff.yml/badge.svg)](https://github.com/suhren/camscan/actions/workflows/ruff.yml)
 [![mypy](https://github.com/suhren/camscan/actions/workflows/mypy.yml/badge.svg)](https://github.com/suhren/camscan/actions/workflows/mypy.yml)
+[![pydoclint](https://github.com/suhren/camscan/actions/workflows/pydoclint.yml/badge.svg)](https://github.com/suhren/camscan/actions/workflows/pydoclint.yml)
 [![PyTest](https://github.com/suhren/camscan/actions/workflows/test.yml/badge.svg)](https://github.com/suhren/camscan/actions/workflows/test.yml)
 
 # Camscan

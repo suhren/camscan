@@ -11,15 +11,26 @@ import os
 import re
 import tkinter as tk
 import typing as t
-from tkinter import messagebox as tk_messagebox
+from tkinter import (
+    filedialog as tk_filedialog,
+)
+from tkinter import (
+    messagebox as tk_messagebox,
+)
 
 import customtkinter as ctk
 import cv2
-import numpy as np
 from PIL import Image as PIL_Image
 
 import utils
-from camscan import __app_display_name__, __version__, postprocessing, scanner, widgets
+from camscan import (
+    __app_display_name__,
+    __version__,
+    postprocessing,
+    scanner,
+    types,
+    widgets,
+)
 from camscan.camera import Camera
 from camscan.logging import logger
 
@@ -146,7 +157,7 @@ def get_timestamp_str() -> str:
 
 
 def opencv_to_pil_image(
-    image: cv2.typing.MatLike,
+    image: types.Image,
     width: int | None = None,
     height: int | None = None,
 ) -> PIL_Image.Image:
@@ -155,7 +166,7 @@ def opencv_to_pil_image(
     resizing the image while keeping its original aspect ratio.
     :param image: The input OpenCV image
     :param width: Optional width to scale the image to
-    :param width: Optional height to scale the image to
+    :param height: Optional height to scale the image to
     :return: The image converted to a PIL image
     """
     return PIL_Image.fromarray(
@@ -168,7 +179,7 @@ def opencv_to_pil_image(
 
 
 def opencv_to_ctk_image(
-    image: cv2.typing.MatLike,
+    image: types.Image,
     width: int | None = None,
     height: int | None = None,
 ) -> ctk.CTkImage:
@@ -177,7 +188,7 @@ def opencv_to_ctk_image(
     resizing the image while keeping its original aspect ratio.
     :param image: The input OpenCV image
     :param width: Optional width to scale the image to
-    :param width: Optional height to scale the image to
+    :param height: Optional height to scale the image to
     :return: The image converted to a CTkImage
     """
     pil_image = opencv_to_pil_image(image=image, width=width, height=height)
@@ -201,7 +212,7 @@ class CaptureEntry:
 
     def __init__(
         self,
-        image: cv2.typing.MatLike,
+        image: types.Image,
         name: str,
         index: int,
         master: ctk.CTkBaseClass,
@@ -268,7 +279,7 @@ class CaptureEntry:
 
         self.set_current_image(image=image)
 
-    def set_current_image(self, image: cv2.typing.MatLike):
+    def set_current_image(self, image: types.Image) -> None:
         """
         Update the current displayed image of this Entry. This will not modify
         the original OpenCV image stored in this object. This will also update
@@ -280,7 +291,7 @@ class CaptureEntry:
         self.image_widget.photo = thumbnail_image
         self.image_widget.configure(image=thumbnail_image)
 
-    def open_image_viewer_window(self):
+    def open_image_viewer_window(self) -> None:
         """
         Open an image viewer window displaying the current image of this Entry.
         """
@@ -294,7 +305,7 @@ class CaptureEntry:
         # The current window size. Used to keep track of when it changes
         current_size = [0, 0]
 
-        def _resize_image():
+        def _resize_image() -> None:
             """Resize the image to fill up the frame in the window"""
             max_width = frame_widget.winfo_width()
             max_height = frame_widget.winfo_height()
@@ -310,7 +321,7 @@ class CaptureEntry:
             image_widget.photo = new_image
             image_widget.configure(image=new_image)
 
-        def _on_window_resize(event):
+        def _on_window_resize(event: tk.Event) -> None:
             # We need to make sure that the only widget that is allowed to
             # trigger the image resizing is the window itself. Otherwise, when
             # we update the image size, the image widget itself will generate
@@ -361,11 +372,11 @@ class CamScanApp(ctk.CTk):
         app.mainloop()
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         self.camera = Camera()
-        self.entries = []
+        self.entries: list[CaptureEntry] = []
         self.var_postprocessing_option = tk.StringVar(
             value=next(iter(POSTPROCESSING_OPTIONS.keys()))
         )
@@ -646,7 +657,7 @@ class CamScanApp(ctk.CTk):
 
     def capture(
         self,
-    ) -> tuple[cv2.typing.MatLike | None, cv2.typing.MatLike | None, np.ndarray | None]:
+    ) -> tuple[types.Image | None, types.Image | None, types.Contour | None]:
         """
         Capture an image from the camera and run the document detection
         algorithm on the resulting image.
@@ -667,7 +678,7 @@ class CamScanApp(ctk.CTk):
 
         return (None, None, None)
 
-    def show_frame(self):
+    def show_frame(self) -> None:
         """
         This function is continuously called to show the camera feed in the
         central widget of the application.
@@ -694,7 +705,7 @@ class CamScanApp(ctk.CTk):
             if len(image.shape) == 2:
                 image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
             # If we are using the 'Free Capture' mode, skip drawing the contour
-            if not self.var_free_capture_mode.get():
+            if not self.var_free_capture_mode.get() and contour is not None:
                 image = utils.draw_contour(image=image, contour=contour)
             # Convert the OpenCV image to a CTkImage to display in the widget
             image_width = image.shape[1]
@@ -718,7 +729,7 @@ class CamScanApp(ctk.CTk):
         # Run again after a delay
         self.after(ms=CAMERA_FEED_WAIT_MS, func=self.show_frame)
 
-    def capture_image(self):
+    def capture_image(self) -> None:
         """
         Capture an image using the camera.
         """
@@ -791,7 +802,7 @@ class CamScanApp(ctk.CTk):
         self.scrollable_frame.update()
         self.scrollable_frame._parent_canvas.yview_moveto(1.0)
 
-    def move_entry(self, entry: CaptureEntry, distance: int):
+    def move_entry(self, entry: CaptureEntry, distance: int) -> None:
         """
         Move an entry in the capture list either up or down by some distance.
         :param entry: The CaptureEntry to move
@@ -822,7 +833,7 @@ class CamScanApp(ctk.CTk):
         # Switch the locations of the entries in the list
         self.entries[i], self.entries[j] = self.entries[j], self.entries[i]
 
-    def select_all_entries(self):
+    def select_all_entries(self) -> None:
         """
         Select or deselect all current capture entries.
         """
@@ -834,7 +845,7 @@ class CamScanApp(ctk.CTk):
             else:
                 entry.selection_checkbox.deselect()
 
-    def delete_selected_entries(self):
+    def delete_selected_entries(self) -> None:
         """
         Delete all the currently selected capture entries.
         """
@@ -876,7 +887,7 @@ class CamScanApp(ctk.CTk):
         # Uncheck the checkbox for selecting all entries
         self.select_all_captures_check_box.deselect()
 
-    def export_merged_captures(self):
+    def export_merged_captures(self) -> None:
         """
         Export all the current captures as a single merged file.
         """
@@ -887,7 +898,7 @@ class CamScanApp(ctk.CTk):
 
         # If there are no captures, show a message box and return
         if n == 0:
-            tk.messagebox.showerror(
+            tk_messagebox.showerror(
                 title="Error",
                 message="There are no captures to export",
             )
@@ -898,7 +909,7 @@ class CamScanApp(ctk.CTk):
         initialfile = f"captures_{timestamp_str}.{file_type}"
 
         # Bring up a dialog asking for the output file path
-        file_path = tk.filedialog.asksaveasfilename(
+        file_path = tk_filedialog.asksaveasfilename(
             initialfile=initialfile,
             defaultextension=".pdf",
             filetypes=[("PDF Documents", "*.pdf"), ("All Files", "*.*")],
@@ -922,12 +933,12 @@ class CamScanApp(ctk.CTk):
         )
 
         # Show a message box indicating to the user that the export succeeded
-        tk.messagebox.showinfo(
+        tk_messagebox.showinfo(
             title="Export Successful",
             message=f"{n} captures exported as {file_type} to {file_path}",
         )
 
-    def export_separate_captures(self):
+    def export_separate_captures(self) -> None:
         """
         Export all the current captures as separate files in a directory.
         """
@@ -938,14 +949,14 @@ class CamScanApp(ctk.CTk):
 
         # If there are no captures, show a message box and return
         if n == 0:
-            tk.messagebox.showerror(
+            tk_messagebox.showerror(
                 title="Error",
                 message="There are no captures to export",
             )
             return
 
         # Bring up a dialog asking for the output directory path
-        file_dialog_dir = tk.filedialog.askdirectory()
+        file_dialog_dir = tk_filedialog.askdirectory()
 
         # If no output directory was chosen (e.g. dialog cancelled), return
         if not file_dialog_dir:
@@ -964,19 +975,19 @@ class CamScanApp(ctk.CTk):
             )
 
         # Show a message box indicating to the user that the export succeeded
-        tk.messagebox.showinfo(
+        tk_messagebox.showinfo(
             title="Export Successful",
             message=f"{n} captures exported as {file_type} to {output_dir}",
         )
 
-    def change_postprocessing_event(self, *args):
+    def change_postprocessing_event(self, *args: t.Any) -> None:
         """
         Handle the event when the chose postprocessing function changes.
         When it does, apply it to all current capture entries.
         """
         self.apply_postprocessing(entries=self.entries)
 
-    def apply_postprocessing(self, entries: list[CaptureEntry]):
+    def apply_postprocessing(self, entries: list[CaptureEntry]) -> None:
         """
         Apply currently chosen postprocessing function to given capture entries.
         :param entries: The capture entries to apply the postprocessing to
@@ -987,17 +998,17 @@ class CamScanApp(ctk.CTk):
             new_image = postprocessing_function(entry.original_image)
             entry.set_current_image(image=new_image)
 
-    def configure_camera_event(self):
+    def configure_camera_event(self) -> None:
         """
         Handle the event for configuring the camera. This is done by opening a
         separate window with the available configuration.
         """
 
-        def _set_camera_index(index: int):
+        def _set_camera_index(index: int) -> None:
             """Callback for changing the camera device index"""
             self.camera.set_index(index=int(index))
 
-        def _update_available_camera_indices():
+        def _update_available_camera_indices() -> None:
             """Callback for updating the available camera device indices"""
             camera_indices = self.camera.get_available_device_indices()
             camera_index_combobox.configure(values=list(map(str, camera_indices)))
@@ -1005,7 +1016,7 @@ class CamScanApp(ctk.CTk):
                 camera_index_combobox.set(value=str(camera_indices[0]))
                 _set_camera_index(camera_indices[0])
 
-        def _set_camera_resolution(resolution_string: str):
+        def _set_camera_resolution(resolution_string: str) -> None:
             """Set the camera resolution from a resolution string"""
             regex = re.compile(r"^(\d+)x(\d+)$")
             matches = regex.findall(resolution_string)
@@ -1013,7 +1024,7 @@ class CamScanApp(ctk.CTk):
                 resolution = (int(matches[0][0]), int(matches[0][1]))
                 self.camera.set_resolution(resolution=resolution)
             else:
-                tk.messagebox.showerror(
+                tk_messagebox.showerror(
                     title="Error",
                     message=(
                         "The resolution string must be on the form '<width>x<height>'"
@@ -1116,7 +1127,7 @@ class CamScanApp(ctk.CTk):
         window.attributes("-topmost", False)
 
 
-def change_ui_appearance_event(new_appearance_mode: str):
+def change_ui_appearance_event(new_appearance_mode: str) -> None:
     """
     Handle the event to update the application appearance.
     :param new_appearance_mode: The appearance mode (System, Dark, Light)
@@ -1124,7 +1135,7 @@ def change_ui_appearance_event(new_appearance_mode: str):
     ctk.set_appearance_mode(new_appearance_mode)
 
 
-def change_ui_scaling_event(new_scaling: str):
+def change_ui_scaling_event(new_scaling: str) -> None:
     """
     Handle the event to update the application UI scale.
     :param new_scaling: The new scaling string on the form XX%

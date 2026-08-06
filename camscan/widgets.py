@@ -3,6 +3,7 @@ Extra widgets and interface elements used by the application.
 """
 
 import tkinter as tk
+import typing as t
 
 import customtkinter as ctk
 
@@ -61,11 +62,11 @@ class Tooltip:
             child.bind("<Leave>", self._leave, add="+")
 
         # Variable keeping track of if the tooltip is currently showing
-        self.showing = False
+        self.showing: bool = False
         # Reference to the created tooltip window
-        self.window = None
+        self.window: ctk.CTkToplevel | None = None
 
-    def _enter(self, _):
+    def _enter(self, _: t.Any) -> None:
         """
         Callback function for when the cursor enters the widget, or potentially
         one of its children.
@@ -82,7 +83,7 @@ class Tooltip:
         events from triggering until the window has been shown.
         """
 
-        def _enter_delayed():
+        def _enter_delayed() -> None:
             # We only want to show the tooltip if it is not already showing
             if not self.showing:
                 # After the delay, we can no longer be sure that the cursor is
@@ -94,7 +95,7 @@ class Tooltip:
 
         self.widget.after(ms=self.display_delay_ms, func=_enter_delayed)
 
-    def _leave(self, _):
+    def _leave(self, _: t.Any) -> None:
         """
         Callback function for when the cursor leaves the widget, or potentially
         one of its children.
@@ -119,7 +120,7 @@ class Tooltip:
         # Otherwise, the cursor has left the widget and we hide the tooltip
         self.hide()
 
-    def show(self):
+    def show(self) -> None:
         """
         Show the tooltip by creating a new TopLevel window and place it at an
         offset from the current cursor position.
@@ -192,12 +193,13 @@ class Tooltip:
         # Update the reference variable that keeps track of the tooltip window
         self.window = window
 
-    def hide(self):
+    def hide(self) -> None:
         """
         Hide the tooltip window.
         """
         # Destroy the actual CTkToplevel object to remove the window
-        self.window.destroy()
+        if self.window is not None:
+            self.window.destroy()
         self.widget.update()
         # Update references in this class to allow a new tooltip to be created
         self.window = None

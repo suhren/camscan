@@ -116,7 +116,7 @@ def find_cycles(graph: list[set[int]], length: int) -> list[list[int]]:
         length: int,
         visited: list[int],
         cycles: list,
-    ):
+    ) -> None:
         successors = graph[visited[-1]]
         if len(visited) == length:
             if visited[0] in successors:
@@ -282,10 +282,10 @@ def order_contour(contour: types.Contour) -> types.Contour:
 
 
 def find_best_contour(
-    contours: list[np.ndarray],
-    image_edged: cv2.typing.MatLike | None = None,
-    image: cv2.typing.MatLike | None = None,
-):
+    contours: list[types.Contour],
+    image_edged: types.Image | None = None,
+    image: types.Image | None = None,
+) -> tuple[types.Contour | None, types.Image | None]:
     """
     Given a list of contours, score them according to some metric and filter out
     invalid ones. Depending on on the image that is supplied, a different metric
@@ -298,6 +298,7 @@ def find_best_contour(
         The original or processed image. If supplied, the scoring of the
         contours will be based on the standard deviation of pixels within the
         area of the contours.
+    :raises ValueError: If no image is supplied or a contour couldn't be found
     :return: A tuple of the best contour, and an image showing its scoring mask
     """
     best_score = 0
