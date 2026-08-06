@@ -1,4 +1,4 @@
-name: pytest
+name: ruff
 
 on: [push]
 
@@ -17,8 +17,7 @@ jobs:
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
 
       - name: Install the project
-        run: uv sync --locked --no-dev --group test
+        run: uv sync --locked --no-dev --group ruff
 
-      - name: Test with pytest
-        run: |
-          uv run -m pytest -m "not integration"
+      - name: Check code format and linting with ruff
+        run: uv run ruff check

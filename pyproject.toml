@@ -13,14 +13,8 @@ requires-python = ">= 3.14"
 dependencies = ["customtkinter", "numpy", "opencv-python", "Pillow"]
 
 [dependency-groups]
-dev = [
-    { include-group = "format" },
-    { include-group = "lint" },
-    { include-group = "test" },
-    "pyinstaller",
-]
-format = ["black"]
-lint = ["flake8"]
+dev = [{ include-group = "ruff" }, { include-group = "test" }, "pyinstaller"]
+ruff = ["ruff>=0.16.1"]
 test = ["pytest"]
 
 [build-system]
@@ -30,44 +24,16 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.dynamic]
 version = { attr = "camscan.__version__" }
 
-# black
-[tool.black]
+[tool.ruff]
+exclude = [".venv"]
 line-length = 88
-target-version = ['py314']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # The following are specific to Black, you probably don't want those.
-  | blib2to3
-  | tests/data
-  | profiling
-)/
-'''
-# We use preview style for formatting Black itself. If you
-# want stable formatting across releases, you should keep
-# this off.
-preview = true
+indent-width = 4
+target-version = "py314"
 
-
-# pytest
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
 markers = [
     "integration: Integration tests (deselect with '-m \"not integration\"')",
-]
-
-# pylint
-[tool.pylint.basic]
-good-names = ["i", "j", "k", "ex", "Run", "_", "df", "e"]
-max-line-length = 88
-disable = [
-    # Allow f-string interpolation in logging statements
-    "logging-fstring-interpolation",
-]
-extension-pkg-whitelist = [
-    # Pylint has issues finding the BasecClass of pydantic:
-    # https://github.com/pydantic/pydantic/issues/1961
-    "pydantic",
 ]

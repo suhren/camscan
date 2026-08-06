@@ -2,10 +2,11 @@
 This module tests the functionality of the scanner code.
 """
 
-import cv2
 import math
-import pytest
+
+import cv2
 import numpy as np
+import pytest
 
 from camscan import scanner
 
@@ -45,8 +46,8 @@ def test_find_cycles(
     Test the functionality of the cycle finder on some test graphs.
     """
     actual_cycles = scanner.find_cycles(graph=graph, length=length)
-    actual_cycles = list(sorted(map(tuple, actual_cycles)))
-    expected_cycles = list(sorted(map(tuple, expected_cycles)))
+    actual_cycles = sorted(map(tuple, actual_cycles))
+    expected_cycles = sorted(map(tuple, expected_cycles))
     assert actual_cycles == expected_cycles
 
 
@@ -54,16 +55,11 @@ def test_find_cycles(
     "contour, expected_contour",
     [
         [
+            # Square in the region (0, 0) to (1, 1):
             # The input contour is on the form (TL, BL, BR, TR)
             # The ordered contour should be as (TL, TR, BR, BL)
             np.array([[0, 0], [0, 1], [1, 1], [1, 0]]),
             np.array([[0, 0], [1, 0], [1, 1], [0, 1]]),
-        ],
-        [
-            # The input contour is on the form (TL, BL, BR, TR)
-            # The ordered contour should be as (TL, TR, BR, BL)
-            np.array([[0, 1], [1, 2], [2, 1], [1, 0]]),
-            np.array([[0, 1], [1, 0], [2, 1], [1, 2]]),
         ],
         [
             # This is a 45 degree rhombus on in the region (0, 0) to (2, 2)
