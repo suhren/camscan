@@ -8,16 +8,26 @@ import numpy as np
 
 from camscan import types, utils
 from camscan.model import hough_utils
-from camscan.model.model import BaseModel, ModelResult
+from camscan.model.model import BaseModel, FloatParameter, IntParameter, ModelResult
 
 
 class GrabCutConotours(BaseModel):
-    RESCALED_HEIGHT = 128
-    MORPH_KSIZE = 7
-    MARGIN = 0.05
-    GRABCUT_ITER_COUNT = 1
+    def __init__(self) -> None:
+        super().__init__(
+            parameters=[
+                IntParameter(
+                    name="rescaled_height", value=256, min_value=64, max_value=1024
+                ),
+                FloatParameter(
+                    name="margin", value=0.05, min_value=0.01, max_value=0.25
+                ),
+                IntParameter(
+                    name="grabcut_iter_count", value=1, min_value=1, max_value=10
+                ),
+            ]
+        )
 
-    def run(self, img: types.Image) -> ModelResult:
+    def _run(self, img: types.Image) -> ModelResult:
         """
         Detect and extract a document found in the input image.
         :param img: The input image to detect and extract the document
@@ -46,7 +56,7 @@ class GrabCutConotours(BaseModel):
         # also speeding up the algorithm as it is faster to process.
         img_scale = utils.resize_with_aspect_ratio(
             image=img,
-            height=self.RESCALED_HEIGHT,
+            height=self.param("rescaled_height").value,
         )
 
         # The result is converted back to original scale later, so save this ratio
@@ -56,7 +66,7 @@ class GrabCutConotours(BaseModel):
 
         # Apply a margin to the image to avoid the edges
         height, width = img_scale.shape[:2]
-        margin = self.MARGIN
+        margin = self.param("margin").value
         x = int(width * margin)
         y = int(height * margin)
         rect = (x, y, width - 2 * x, height - 2 * y)
@@ -73,7 +83,7 @@ class GrabCutConotours(BaseModel):
             rect=rect,
             bgdModel=bgdModel,
             fgdModel=fgdModel,
-            iterCount=self.GRABCUT_ITER_COUNT,
+            iterCount=self.param("grabcut_iter_count").value,
             mode=cv2.GC_INIT_WITH_RECT,
         )
 
