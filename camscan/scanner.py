@@ -12,8 +12,7 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
-import utils
-from camscan import types
+from camscan import types, utils
 
 RESCALED_HEIGHT = 500.0
 

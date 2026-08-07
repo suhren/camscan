@@ -22,13 +22,13 @@ import customtkinter as ctk
 import cv2
 from PIL import Image as PIL_Image
 
-import utils
 from camscan import (
     __app_display_name__,
     __version__,
     postprocessing,
     scanner,
     types,
+    utils,
     widgets,
 )
 from camscan.camera import Camera
