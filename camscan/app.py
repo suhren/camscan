@@ -26,13 +26,16 @@ from camscan import (
     __app_display_name__,
     __version__,
     postprocessing,
-    scanner,
     types,
     utils,
     widgets,
 )
 from camscan.camera import Camera
 from camscan.logging import logger
+from camscan.model.model import ModelResult
+from camscan.model.models.simple_hough import SimpleHough
+
+MODEL = SimpleHough()
 
 # Define the window title
 WINDOW_TITLE = f"{__app_display_name__} {__version__}"
@@ -667,7 +670,7 @@ class CamScanApp(ctk.CTk):
 
         self.show_frame()
 
-    def capture(self) -> scanner.ScanResult | None:
+    def capture(self) -> ModelResult | None:
         """
         Capture an image from the camera and run the document detection
         algorithm on the resulting image.
@@ -676,7 +679,7 @@ class CamScanApp(ctk.CTk):
         img_capture = self.camera.capture()
 
         if img_capture is not None:
-            return scanner.main(img_capture)
+            return MODEL.run(img_capture)
 
         return None
 
@@ -700,8 +703,8 @@ class CamScanApp(ctk.CTk):
 
         if result is not None:
             if self.var_debug_mode.get():
-                debug_images = [x.img for x in result.debug_images]
-                debug_labels = [x.name for x in result.debug_images]
+                debug_images = list(result.debug_images.values())
+                debug_labels = list(result.debug_images.keys())
                 debug_image = utils.images_in_grid(
                     images=debug_images,
                     labels=debug_labels,
