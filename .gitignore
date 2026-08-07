@@ -1,6 +1,5 @@
 .vscode
 virtualenv
-exploration
 build/
 
 # Byte-compiled / optimized / DLL files
