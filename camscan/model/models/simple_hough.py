@@ -25,7 +25,7 @@ class SimpleHough(BaseModel):
     HOUGH_THRESHOLDS = (100, 150, 200)
     HOUGH_MAX_LINES = 16
     MIN_INTERSECTION_ANGLE = 60 * math.pi / 180
-    MIN_CONTOUR_AREA_RATIO = 0.20
+    MIN_CONTOUR_AREA_RATIO = 0.10
     MIN_CONTOUR_CORNER_DISTANCE = 50
 
     def run(self, img: types.Image) -> ModelResult:
@@ -63,10 +63,10 @@ class SimpleHough(BaseModel):
             height=self.RESCALED_HEIGHT,
         )
 
-        result.debug_images["img_scale"] = img_scale
-
         # The result is converted back to original scale later, so save this ratio
         original_scale = img.shape[0] / img_scale.shape[0]
+
+        result.debug_images["img_scale"] = img_scale
 
         # The algorithm works by detecting edges in the image. For this application
         # color is not (usually) interesting, so convert the image to grayscale.
@@ -149,12 +149,15 @@ class SimpleHough(BaseModel):
             lines=lines,
             max_x=img_edge.shape[1],
             max_y=img_edge.shape[0],
+            min_intersection_angle=self.MIN_INTERSECTION_ANGLE,
+            min_corner_distance=self.MIN_CONTOUR_CORNER_DISTANCE,
         )
 
         # Find the best contour by scoring them and filtering out invalid ones
         best_contour, best_mask = hough_utils.find_best_contour(
             contours=contours,
             image_edged=img_edge,
+            min_contour_area_ratio=self.MIN_CONTOUR_AREA_RATIO,
         )
 
         result.debug_images["best_mask"] = best_mask
