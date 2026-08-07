@@ -87,18 +87,41 @@ def images_in_grid(
     subframe_width = int(output_width / num_cols)
     subframe_height = int(output_height / num_rows)
 
-    output_image = np.zeros((output_height, output_width, 3), np.uint8)
+    images_to_show: list[types.Image | None] = []
 
-    for i, img in enumerate(images):
+    # Check if any image has an alpha channel
+    if any(
+        img is not None and len(img.shape) > 2 and img.shape[2] == 4 for img in images
+    ):
+        output_image = np.zeros((output_height, output_width, 4), np.uint8)
+        for img in images:
+            if img is None:
+                images_to_show.append(None)
+            elif len(img.shape) == 2:
+                images_to_show.append(cv2.cvtColor(img, cv2.COLOR_GRAY2BGRA))
+            elif img.shape[2] == 3:
+                images_to_show.append(cv2.cvtColor(img, cv2.COLOR_BGR2BGRA))
+            else:
+                images_to_show.append(img)
+    else:
+        output_image = np.zeros((output_height, output_width, 3), np.uint8)
+        for img in images:
+            if img is None:
+                images_to_show.append(None)
+            elif len(img.shape) == 2:
+                images_to_show.append(cv2.cvtColor(img, cv2.COLOR_GRAY2BGR))
+            elif img.shape[2] == 4:
+                images_to_show.append(cv2.cvtColor(img, cv2.COLOR_BGRA2BGR))
+            else:
+                images_to_show.append(img)
+
+    for i, img in enumerate(images_to_show):
         col = i % num_cols
         row = i // num_cols
         top_left_x = col * subframe_width
         top_left_y = row * subframe_height
 
         if img is not None:
-            if len(img.shape) == 2:
-                img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-
             scaled_img = resize_with_aspect_ratio(
                 img, width=subframe_width, height=subframe_height
             )

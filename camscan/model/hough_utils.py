@@ -152,17 +152,17 @@ def find_intersections(
     lines: np.ndarray,
     max_x: int,
     max_y: int,
-    min_angle: float = MIN_INTERSECTION_ANGLE,
+    min_intersection_angle: float = MIN_INTERSECTION_ANGLE,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Given lines expressed in Hesse normal form produced by the Hough Transform,
     find the intersection coordinates of these lines under some conditions:
-    - Line intersections where the angle of incidence is larger than 'min_angle'
+    - Line intersections where the angle of incidence is larger than 'min_intersection_angle'
     - Line intersections where 0 <= x <= 'max_x' and 0 <= y <= 'max_y'
     :param lines: An array on the form [[rho1, theta1], [rho2, theta2], ...]
     :param max_x: Maximum allowed intersection x coordinate value
     :param max_y: Maximum allowed intersection y coordinate value
-    :param min_angle: Minimum angle of incidence of two intersecting lines
+    :param min_intersection_angle: Minimum angle of incidence of two intersecting lines
     :return:
         A tuple with an array of intersection coordinates, and another array
         containing the indices of the lines that make up that intersection.
@@ -178,7 +178,7 @@ def find_intersections(
         # If either of these is too small, we don't consider the line
         intersect_angle_1 = abs(theta1 - theta2)
         intersect_angle_2 = math.pi - intersect_angle_1
-        if min(intersect_angle_1, intersect_angle_2) < min_angle:
+        if min(intersect_angle_1, intersect_angle_2) < min_intersection_angle:
             continue
 
         x, y = intersection(rho1=rho1, theta1=theta1, rho2=rho2, theta2=theta2)
@@ -194,6 +194,7 @@ def find_contours(
     lines: np.ndarray,
     max_x: int,
     max_y: int,
+    min_intersection_angle: float = MIN_INTERSECTION_ANGLE,
     min_corner_distance: float = MIN_CONTOUR_CORNER_DISTANCE,
 ) -> list[types.Contour]:
     """
@@ -202,6 +203,7 @@ def find_contours(
     :param lines: An array on the form [[rho1, theta1], [rho2, theta2], ...]
     :param max_x: Maximum allowed x coordinate value
     :param max_y: Maximum allowed y coordinate value
+    :param min_intersection_angle: Minimum intersection angle of two lines
     :param min_corner_distance: Minimum required distance of two corner points
     :return: An array where each entry is a list of four corner points
     """
@@ -211,6 +213,7 @@ def find_contours(
         lines=lines,
         max_x=max_x,
         max_y=max_y,
+        min_intersection_angle=min_intersection_angle,
     )
 
     graph = []
@@ -273,6 +276,7 @@ def find_best_contour(
     contours: list[types.Contour],
     image_edged: types.Image | None = None,
     image: types.Image | None = None,
+    min_contour_area_ratio: float = MIN_CONTOUR_AREA_RATIO,
 ) -> tuple[types.Contour | None, types.Image | None]:
     """
     Given a list of contours, score them according to some metric and filter out
@@ -286,6 +290,7 @@ def find_best_contour(
         The original or processed image. If supplied, the scoring of the
         contours will be based on the standard deviation of pixels within the
         area of the contours.
+    :param min_contour_area_ratio: Minimum required area ratio of a contour
     :raises ValueError: If no image is supplied or a contour couldn't be found
     :return: A tuple of the best contour, and an image showing its scoring mask
     """
@@ -305,7 +310,7 @@ def find_best_contour(
     for contour in contours:
         area = cv2.contourArea(contour)
 
-        if area < shape[0] * shape[1] * MIN_CONTOUR_AREA_RATIO:
+        if area < shape[0] * shape[1] * min_contour_area_ratio:
             continue
 
         count += 1
