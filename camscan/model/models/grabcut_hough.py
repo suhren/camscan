@@ -10,26 +10,59 @@ import numpy as np
 
 from camscan import types, utils
 from camscan.model import hough_utils
-from camscan.model.model import BaseModel, ModelResult
+from camscan.model.model import BaseModel, FloatParameter, IntParameter, ModelResult
 
 
 class GrabCutHough(BaseModel):
-    RESCALED_HEIGHT = 256.0
+    def __init__(self) -> None:
+        super().__init__(
+            parameters=[
+                FloatParameter(
+                    name="rescaled_height", value=256, min_value=64, max_value=1024
+                ),
+                FloatParameter(
+                    name="margin", value=0.05, min_value=0.01, max_value=0.25
+                ),
+                IntParameter(name="blur_ksize", value=13, min_value=3, max_value=51),
+                IntParameter(name="morph_ksize", value=13, min_value=3, max_value=51),
+                FloatParameter(
+                    name="canny_threshold1", value=0, min_value=0, max_value=200
+                ),
+                FloatParameter(
+                    name="canny_threshold2", value=1, min_value=0, max_value=200
+                ),
+                FloatParameter(name="hough_rho", value=1, min_value=0, max_value=20),
+                FloatParameter(
+                    name="hough_theta_degrees",
+                    value=3.0,
+                    min_value=0.1,
+                    max_value=180.0,
+                ),
+                IntParameter(
+                    name="hough_threshold", value=100, min_value=1, max_value=500
+                ),
+                FloatParameter(
+                    name="min_intersection_angle_degrees",
+                    value=60,
+                    min_value=0,
+                    max_value=180,
+                ),
+                FloatParameter(
+                    name="min_contour_area_ratio",
+                    value=0.10,
+                    min_value=0.01,
+                    max_value=1.00,
+                ),
+                FloatParameter(
+                    name="min_contour_corner_distance",
+                    value=50,
+                    min_value=1,
+                    max_value=200,
+                ),
+            ]
+        )
 
-    MARGIN = 0.05
-    BLUR_KSIZE = 13
-    MORPH_KSIZE = 13
-    CANNY_THRESHOLD1 = 0
-    CANNY_THRESHOLD2 = 1
-    HOUGH_RHO = 1
-    HOUGH_THETA = math.pi / 60
-    HOUGH_THRESHOLD = 100
-    HOUGH_MAX_LINES = 16
-    MIN_INTERSECTION_ANGLE = 60 * math.pi / 180
-    MIN_CONTOUR_AREA_RATIO = 0.10
-    MIN_CONTOUR_CORNER_DISTANCE = 50
-
-    def run(self, img: types.Image) -> ModelResult:
+    def _run(self, img: types.Image) -> ModelResult:
         """
         Detect and extract a document found in the input image.
         :param img: The input image to detect and extract the document
@@ -63,7 +96,7 @@ class GrabCutHough(BaseModel):
         # also speeding up the algorithm as it is faster to process.
         img_scale = utils.resize_with_aspect_ratio(
             image=img,
-            height=self.RESCALED_HEIGHT,
+            height=self.param("rescaled_height").value,
         )
 
         # The result is converted back to original scale later, so save this ratio
@@ -73,7 +106,7 @@ class GrabCutHough(BaseModel):
 
         # Apply a margin to the image to avoid the edges
         height, width = img_scale.shape[:2]
-        margin = self.MARGIN
+        margin = self.param("margin").value
         x = int(width * margin)
         y = int(height * margin)
         rect = (x, y, width - 2 * x, height - 2 * y)
@@ -101,7 +134,10 @@ class GrabCutHough(BaseModel):
 
         blur = cv2.GaussianBlur(
             src=mask2,
-            ksize=(self.BLUR_KSIZE, self.BLUR_KSIZE),
+            ksize=(
+                self.param("blur_ksize").value,
+                self.param("blur_ksize").value,
+            ),
             sigmaX=0,
         )
 
@@ -118,7 +154,10 @@ class GrabCutHough(BaseModel):
             op=cv2.MORPH_CLOSE,
             kernel=cv2.getStructuringElement(
                 shape=cv2.MORPH_RECT,
-                ksize=(self.MORPH_KSIZE, self.MORPH_KSIZE),
+                ksize=(
+                    self.param("morph_ksize").value,
+                    self.param("morph_ksize").value,
+                ),
             ),
         )
 
@@ -126,21 +165,17 @@ class GrabCutHough(BaseModel):
 
         edge = cv2.Canny(
             image=dilated,
-            threshold1=self.CANNY_THRESHOLD1,
-            threshold2=self.CANNY_THRESHOLD2,
+            threshold1=self.param("canny_threshold1").value,
+            threshold2=self.param("canny_threshold2").value,
         )
 
         result.debug_images["edge"] = edge
 
         lines = cv2.HoughLines(
             image=edge,
-            rho=2,
-            theta=math.pi / 180,
-            threshold=100,
-            srn=0,
-            stn=0,
-            min_theta=0,
-            max_theta=np.pi,
+            rho=self.param("hough_rho").value,
+            theta=self.param("hough_theta_degrees").value * math.pi / 180,
+            threshold=self.param("hough_threshold").value,
         )
 
         # Return if no lines were found in the Hough Transform
@@ -163,15 +198,17 @@ class GrabCutHough(BaseModel):
             lines=lines,
             max_x=edge.shape[1],
             max_y=edge.shape[0],
-            min_intersection_angle=self.MIN_INTERSECTION_ANGLE,
-            min_corner_distance=self.MIN_CONTOUR_CORNER_DISTANCE,
+            min_intersection_angle=self.param("min_intersection_angle_degrees").value
+            * math.pi
+            / 180,
+            min_corner_distance=self.param("min_contour_corner_distance").value,
         )
 
         # Find the best contour by scoring them and filtering out invalid ones
         best_contour, best_mask = hough_utils.find_best_contour(
             contours=contours,
             image_edged=edge,
-            min_contour_area_ratio=self.MIN_CONTOUR_AREA_RATIO,
+            min_contour_area_ratio=self.param("min_contour_area_ratio").value,
         )
 
         result.debug_images["best_mask"] = best_mask

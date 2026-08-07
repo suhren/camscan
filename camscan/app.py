@@ -32,14 +32,25 @@ from camscan import (
 )
 from camscan.camera import Camera
 from camscan.logging import logger
-from camscan.model.model import ModelResult
-
-# from camscan.model.models.simple_hough import SimpleHough
-# from camscan.model.models.grabcut_hough import GrabCutHough
-# from camscan.model.models.find_contours import FindContours
+from camscan.model.model import (
+    BaseModel,
+    FloatParameter,
+    IntParameter,
+    ModelResult,
+)
+from camscan.model.models.find_contours import FindContours
 from camscan.model.models.grabcut_contours import GrabCutConotours
+from camscan.model.models.grabcut_hough import GrabCutHough
+from camscan.model.models.simple_hough import SimpleHough
 
-MODEL = GrabCutConotours()
+MODELS: dict[str, BaseModel] = {
+    "SimpleHough": SimpleHough(),
+    "GrabCutHough": GrabCutHough(),
+    "FindContours": FindContours(),
+    "GrabCutConotours": GrabCutConotours(),
+}
+
+DEFAULT_MODEL_OPTION = "GrabCutConotours"
 
 # Define the window title
 WINDOW_TITLE = f"{__app_display_name__} {__version__}"
@@ -100,6 +111,8 @@ POSTPROCESSING_OPTIONS = {
     "Grayscale": postprocessing.grayscale,
     "Black and White": postprocessing.black_and_white,
 }
+
+DEFAULT_POSTPROCESSING_OPTION = "None"
 
 # Define the list of pre-defined camera resolutions. In addition to these, the
 # user can also enter custom resolutions manually.
@@ -402,8 +415,10 @@ class CamScanApp(ctk.CTk):
         self.camera = Camera()
         self.entries: list[CaptureEntry] = []
         self.var_postprocessing_option = tk.StringVar(
-            value=next(iter(POSTPROCESSING_OPTIONS.keys()))
+            value=DEFAULT_POSTPROCESSING_OPTION
         )
+        self.var_model_option = tk.StringVar(value=DEFAULT_MODEL_OPTION)
+        self.model = MODELS[DEFAULT_MODEL_OPTION]
         self.var_debug_mode = tk.IntVar(value=0)
         self.var_two_page_mode = tk.IntVar(value=0)
         self.var_free_capture_mode = tk.IntVar(value=0)
@@ -448,6 +463,22 @@ class CamScanApp(ctk.CTk):
             self.left_sidebar_frame,
             text="Camera Driver Settings",
             command=self.camera.show_settings,
+        )
+
+        # Add a menu for model settings
+        self.model_settings_label = ctk.CTkLabel(
+            self.left_sidebar_frame, text="Model Settings:", anchor="w"
+        )
+        self.model_option_menu = ctk.CTkOptionMenu(
+            self.left_sidebar_frame,
+            values=list(MODELS.keys()),
+            command=self.change_model_event,
+            variable=self.var_model_option,
+        )
+        self.configure_model_button = ctk.CTkButton(
+            self.left_sidebar_frame,
+            text="Configure Model",
+            command=self.configure_model_event,
         )
 
         # Add a menu for the color settings
@@ -550,6 +581,9 @@ class CamScanApp(ctk.CTk):
         self.camera_settings_label.pack(**LEFT_MENU_PACK_KWARGS)
         self.configure_camera_button.pack(**LEFT_MENU_PACK_KWARGS)
         self.camera_settings_button.pack(**LEFT_MENU_PACK_KWARGS)
+        self.model_settings_label.pack(**LEFT_MENU_PACK_KWARGS)
+        self.model_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
+        self.configure_model_button.pack(**LEFT_MENU_PACK_KWARGS)
         self.postprocessing_menu_label.pack(**LEFT_MENU_PACK_KWARGS)
         self.postprocessing_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
         self.appearance_mode_label.pack(**LEFT_MENU_PACK_KWARGS)
@@ -570,7 +604,7 @@ class CamScanApp(ctk.CTk):
 
         # Configure the central widget showing the camera feed
         self.camera_image_widget = ctk.CTkLabel(self, text=None, padx=0, pady=0)
-        self.camera_image_label = ctk.CTkLabel(
+        self.capture_image_label = ctk.CTkLabel(
             self,
             text="No Camera",
             font=ctk.CTkFont(size=20, weight="bold"),
@@ -630,7 +664,7 @@ class CamScanApp(ctk.CTk):
         # Organize main frames
         self.left_sidebar_frame.grid(row=0, column=0, rowspan=4, sticky="nsew")
         self.camera_image_widget.grid(row=0, column=1, sticky="nsew")
-        self.camera_image_label.grid(row=0, column=1, sticky="nsew")
+        self.capture_image_label.grid(row=0, column=1, sticky="nsew")
         self.camera_image_widget.lift()
         self.right_sidebar_frame.grid(row=0, column=2, rowspan=4, sticky="nsew")
 
@@ -700,7 +734,7 @@ class CamScanApp(ctk.CTk):
         img_capture = self.camera.capture()
 
         if img_capture is not None:
-            return MODEL.run(img_capture)
+            return self.model.run(img_capture)
 
         return None
 
@@ -722,7 +756,13 @@ class CamScanApp(ctk.CTk):
         # Capture an image and the resulting detected contour from the camera
         result = self.capture()
 
-        if result is not None:
+        if result is None:
+            # If there was no image captured, lift the 'No Camera' widget on top
+            self.capture_image_label.lift()
+        elif result.error_message:
+            self.capture_image_label.configure(text=result.error_message)
+            self.capture_image_label.lift()
+        else:
             if self.var_debug_mode.get():
                 debug_images = list(result.debug_images.values())
                 debug_labels = list(result.debug_images.keys())
@@ -764,9 +804,6 @@ class CamScanApp(ctk.CTk):
                 self.camera_image_widget.configure(image=image)
                 # Ensure the camera image widget is top of the 'No Camera' widget
                 self.camera_image_widget.lift()
-        else:
-            # If there was no image captured, lift the 'No Camera' widget on top
-            self.camera_image_label.lift()
 
         # Run again after a delay
         self.after(ms=CAMERA_FEED_WAIT_MS, func=self.show_frame)
@@ -1041,6 +1078,9 @@ class CamScanApp(ctk.CTk):
             new_image = postprocessing_function(entry.original_image)
             entry.set_current_image(image=new_image)
 
+    def change_model_event(self, *args: t.Any) -> None:
+        self.model = MODELS[self.var_model_option.get()]
+
     def configure_camera_event(self) -> None:
         """
         Handle the event for configuring the camera. This is done by opening a
@@ -1157,6 +1197,54 @@ class CamScanApp(ctk.CTk):
             widget=custom_camera_resolution_button,
             text=TOOLTIPS["custom_camera_resolution"],
         )
+
+        # Make sure this window is on top of the main window
+        # We could simply just set topmost to True and leave it at that, but
+        # that will prevent the Tooltips from working properly. We can instead
+        # set it to topmost temporarily, use grab_set to set focus, and then
+        # set topmost back to False. This brings the window to the front.
+        # From the documentation it seems that using .lift(aboveThis=self) would
+        # work, but I was not able to make that work.
+        window.attributes("-topmost", True)
+        window.grab_set()
+        window.attributes("-topmost", False)
+
+    def configure_model_event(self) -> None:
+        """
+        Handle the event for configuring the model. This is done by opening a
+        separate window with the available configuration.
+        """
+
+        # Create a new top-level window for the model configuration
+        window = ctk.CTkToplevel()
+        window.resizable(width=False, height=False)
+        window.title("Model Configuration")
+
+        def _on_value(val: t.Any, name: str) -> None:
+            self.model.param(name).set(val)
+
+        for p in self.model.parameters:
+            if isinstance(p, IntParameter):
+                widgets.InputInt(
+                    master=window,
+                    label=p.name,
+                    value=p.value,
+                    min_value=p.min_value,
+                    max_value=p.max_value,
+                    default_value=p.default_value,
+                    on_value=functools.partial(_on_value, name=p.name),
+                )
+
+            elif isinstance(p, FloatParameter):
+                widgets.InputFloat(
+                    master=window,
+                    label=p.name,
+                    value=p.value,
+                    min_value=p.min_value,
+                    max_value=p.max_value,
+                    default_value=p.default_value,
+                    on_value=functools.partial(_on_value, name=p.name),
+                )
 
         # Make sure this window is on top of the main window
         # We could simply just set topmost to True and leave it at that, but

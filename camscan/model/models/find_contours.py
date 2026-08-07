@@ -8,17 +8,28 @@ import numpy as np
 
 from camscan import types, utils
 from camscan.model import hough_utils
-from camscan.model.model import BaseModel, ModelResult
+from camscan.model.model import BaseModel, FloatParameter, IntParameter, ModelResult
 
 
 class FindContours(BaseModel):
-    RESCALED_HEIGHT = 256
-    BLUR_KSIZE = 13
-    MORPH_KSIZE = 7
-    CANNY_THRESHOLD1 = 0
-    CANNY_THRESHOLD2 = 84
+    def __init__(self) -> None:
+        super().__init__(
+            parameters=[
+                FloatParameter(
+                    name="rescaled_height", value=256, min_value=64, max_value=1024
+                ),
+                IntParameter(name="blur_ksize", value=13, min_value=3, max_value=51),
+                IntParameter(name="morph_ksize", value=7, min_value=3, max_value=51),
+                FloatParameter(
+                    name="canny_threshold1", value=0, min_value=0, max_value=200
+                ),
+                FloatParameter(
+                    name="canny_threshold2", value=84, min_value=0, max_value=200
+                ),
+            ]
+        )
 
-    def run(self, img: types.Image) -> ModelResult:
+    def _run(self, img: types.Image) -> ModelResult:
         """
         Detect and extract a document found in the input image.
         :param img: The input image to detect and extract the document
@@ -45,7 +56,7 @@ class FindContours(BaseModel):
 
         img_scale = utils.resize_with_aspect_ratio(
             image=img,
-            height=256,
+            height=self.param("rescaled_height").value,
         )
         original_scale = img.shape[0] / img_scale.shape[0]
 
@@ -60,7 +71,10 @@ class FindContours(BaseModel):
 
         img_blur = cv2.GaussianBlur(
             src=img_grayscale,
-            ksize=(self.BLUR_KSIZE, self.BLUR_KSIZE),
+            ksize=(
+                self.param("blur_ksize").value,
+                self.param("blur_ksize").value,
+            ),
             sigmaX=0,
         )
 
@@ -75,7 +89,13 @@ class FindContours(BaseModel):
 
         result.debug_images["threshold"] = img_threshold
 
-        kernel = np.ones((self.MORPH_KSIZE, self.MORPH_KSIZE), np.uint8)
+        kernel = np.ones(
+            (
+                self.param("morph_ksize").value,
+                self.param("morph_ksize").value,
+            ),
+            np.uint8,
+        )
         img_morphology = cv2.morphologyEx(img_threshold, cv2.MORPH_CLOSE, kernel)
         img_morphology = cv2.morphologyEx(img_morphology, cv2.MORPH_OPEN, kernel)
 
@@ -83,8 +103,8 @@ class FindContours(BaseModel):
 
         img_canny = cv2.Canny(
             image=img_morphology,
-            threshold1=self.CANNY_THRESHOLD1,
-            threshold2=self.CANNY_THRESHOLD2,
+            threshold1=self.param("canny_threshold1").value,
+            threshold2=self.param("canny_threshold2").value,
         )
 
         result.debug_images["canny"] = img_canny
