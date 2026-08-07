@@ -10,25 +10,58 @@ import numpy as np
 
 from camscan import types, utils
 from camscan.model import hough_utils
-from camscan.model.model import BaseModel, ModelResult
+from camscan.model.model import BaseModel, FloatParameter, IntParameter, ModelResult
 
 
 class SimpleHough(BaseModel):
-    RESCALED_HEIGHT = 500.0
-
-    BLUR_KSIZE = 13
-    MORPH_KSIZE = 13
-    CANNY_THRESHOLD1 = 0
-    CANNY_THRESHOLD2 = 84
-    HOUGH_RHO = 2
-    HOUGH_THETA = np.pi / 180
     HOUGH_THRESHOLDS = (100, 150, 200)
-    HOUGH_MAX_LINES = 16
-    MIN_INTERSECTION_ANGLE = 60 * math.pi / 180
-    MIN_CONTOUR_AREA_RATIO = 0.10
-    MIN_CONTOUR_CORNER_DISTANCE = 50
 
-    def run(self, img: types.Image) -> ModelResult:
+    def __init__(self) -> None:
+        super().__init__(
+            parameters=[
+                FloatParameter(
+                    name="rescaled_height", value=500, min_value=64, max_value=1024
+                ),
+                IntParameter(name="blur_ksize", value=13, min_value=3, max_value=51),
+                IntParameter(name="morph_ksize", value=13, min_value=3, max_value=51),
+                FloatParameter(
+                    name="canny_threshold1", value=0, min_value=0, max_value=200
+                ),
+                FloatParameter(
+                    name="canny_threshold2", value=84, min_value=0, max_value=200
+                ),
+                FloatParameter(name="hough_rho", value=2, min_value=0, max_value=20),
+                FloatParameter(
+                    name="hough_theta_degrees",
+                    value=1.0,
+                    min_value=0.1,
+                    max_value=180.0,
+                ),
+                IntParameter(
+                    name="hough_max_lines", value=16, min_value=4, max_value=64
+                ),
+                FloatParameter(
+                    name="min_intersection_angle_degrees",
+                    value=60,
+                    min_value=0,
+                    max_value=180,
+                ),
+                FloatParameter(
+                    name="min_contour_area_ratio",
+                    value=0.10,
+                    min_value=0.01,
+                    max_value=1.00,
+                ),
+                FloatParameter(
+                    name="min_contour_corner_distance",
+                    value=50,
+                    min_value=1,
+                    max_value=200,
+                ),
+            ]
+        )
+
+    def _run(self, img: types.Image) -> ModelResult:
         """
         Detect and extract a document found in the input image.
         :param img: The input image to detect and extract the document
@@ -60,7 +93,7 @@ class SimpleHough(BaseModel):
         # also speeding up the algorithm as it is faster to process.
         img_scale = utils.resize_with_aspect_ratio(
             image=img,
-            height=self.RESCALED_HEIGHT,
+            height=self.param("rescaled_height").value,
         )
 
         # The result is converted back to original scale later, so save this ratio
@@ -83,7 +116,10 @@ class SimpleHough(BaseModel):
         # contour of the document).
         img_scale_gray_blur = cv2.GaussianBlur(
             src=img_scale_gray,
-            ksize=(self.BLUR_KSIZE, self.BLUR_KSIZE),
+            ksize=(
+                self.param("blur_ksize").value,
+                self.param("blur_ksize").value,
+            ),
             sigmaX=0,
         )
 
@@ -100,7 +136,10 @@ class SimpleHough(BaseModel):
             op=cv2.MORPH_CLOSE,
             kernel=cv2.getStructuringElement(
                 shape=cv2.MORPH_RECT,
-                ksize=(self.MORPH_KSIZE, self.MORPH_KSIZE),
+                ksize=(
+                    self.param("morph_ksize").value,
+                    self.param("morph_ksize").value,
+                ),
             ),
         )
 
@@ -109,8 +148,8 @@ class SimpleHough(BaseModel):
         # We can then apply the Canny edge detection algorithm to the image
         img_edge = cv2.Canny(
             image=img_scale_gray_blur_dilated,
-            threshold1=self.CANNY_THRESHOLD1,
-            threshold2=self.CANNY_THRESHOLD2,
+            threshold1=self.param("canny_threshold1").value,
+            threshold2=self.param("canny_threshold2").value,
         )
 
         result.debug_images["img_edge"] = img_edge
@@ -122,11 +161,11 @@ class SimpleHough(BaseModel):
         for threshold in self.HOUGH_THRESHOLDS:
             lines = cv2.HoughLines(
                 image=img_edge,
-                rho=self.HOUGH_RHO,
-                theta=self.HOUGH_THETA,
+                rho=self.param("hough_rho").value,
+                theta=self.param("hough_theta_degrees").value * math.pi / 180,
                 threshold=threshold,
             )
-            if lines is not None and len(lines) <= self.HOUGH_MAX_LINES:
+            if lines is not None and len(lines) <= self.param("hough_max_lines").value:
                 break
 
         # Return if no lines were found in the Hough Transform
@@ -149,15 +188,17 @@ class SimpleHough(BaseModel):
             lines=lines,
             max_x=img_edge.shape[1],
             max_y=img_edge.shape[0],
-            min_intersection_angle=self.MIN_INTERSECTION_ANGLE,
-            min_corner_distance=self.MIN_CONTOUR_CORNER_DISTANCE,
+            min_intersection_angle=self.param("min_intersection_angle_degrees").value
+            * math.pi
+            / 180,
+            min_corner_distance=self.param("min_contour_corner_distance").value,
         )
 
         # Find the best contour by scoring them and filtering out invalid ones
         best_contour, best_mask = hough_utils.find_best_contour(
             contours=contours,
             image_edged=img_edge,
-            min_contour_area_ratio=self.MIN_CONTOUR_AREA_RATIO,
+            min_contour_area_ratio=self.param("min_contour_area_ratio").value,
         )
 
         result.debug_images["best_mask"] = best_mask
