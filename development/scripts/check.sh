@@ -6,4 +6,4 @@ uv run mypy .
 echo "======== Running pydoclint ========"
 uv run pydoclint .
 echo "======== Running pytest ========"
-uv run -m pytest .
+uv run -m pytest -vv .

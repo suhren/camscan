@@ -38,7 +38,7 @@ software available at the [releases section in ths repo](https://github.com/suhr
 
 ## Running as a Python module
 
-You can also run the camera scanner application as a Python module using your own environment.
+You can also run the application as a Python module using your own environment.
 
 This project uses [uv](https://docs.astral.sh/uv/) as the python package and project manager.
 If you have `uv` installed, the setups is simply as simple as running the app directly:
