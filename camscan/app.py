@@ -8,7 +8,6 @@ export the captured images.
 import datetime
 import functools
 import os
-import re
 import tkinter as tk
 import typing as t
 from tkinter import (
@@ -30,7 +29,7 @@ from camscan import (
     utils,
     widgets,
 )
-from camscan.camera import Camera, get_available_cameras
+from camscan.camera import Camera, CameraManager
 from camscan.logging import logger
 from camscan.model.model import (
     BaseModel,
@@ -412,11 +411,10 @@ class CamScanApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
 
-        self.camera = Camera()
+        self.camera_manager: CameraManager = CameraManager()
+        self.camera: Camera | None = None
+
         self.entries: list[CaptureEntry] = []
-        self.camera_name_to_index_mapping: dict[str, int] = {}
-        self.camera_index_to_name_mapping: dict[int, str] = {}
-        self.camera_names: list[str] = []
         self.var_postprocessing_option = tk.StringVar(
             value=DEFAULT_POSTPROCESSING_OPTION
         )
@@ -465,7 +463,7 @@ class CamScanApp(ctk.CTk):
         self.camera_settings_button = ctk.CTkButton(
             self.left_sidebar_frame,
             text="Camera Driver Settings",
-            command=self.camera.show_settings,
+            command=self.show_camera_settings,
         )
 
         # Add a menu for model settings
@@ -606,11 +604,18 @@ class CamScanApp(ctk.CTk):
         self.export_merged_captures_button.pack(**LEFT_MENU_PACK_KWARGS)
 
         # Configure the central widget showing the camera feed
-        self.camera_image_widget = ctk.CTkLabel(self, text=None, padx=0, pady=0)
-        self.capture_image_label = ctk.CTkLabel(
+        self.center_camera_image_widget = ctk.CTkLabel(self, text=None, padx=0, pady=0)
+        self.center_camera_no_video_label = ctk.CTkLabel(
             self,
-            text="No Camera",
+            text="No Video",
             font=ctk.CTkFont(size=20, weight="bold"),
+            padx=0,
+            pady=0,
+        )
+        self.center_camera_info_label = ctk.CTkLabel(
+            self,
+            text="",
+            font=ctk.CTkFont(size=14, family="monospace"),
             padx=0,
             pady=0,
         )
@@ -666,9 +671,9 @@ class CamScanApp(ctk.CTk):
 
         # Organize main frames
         self.left_sidebar_frame.grid(row=0, column=0, rowspan=4, sticky="nsew")
-        self.camera_image_widget.grid(row=0, column=1, sticky="nsew")
-        self.capture_image_label.grid(row=0, column=1, sticky="nsew")
-        self.camera_image_widget.lift()
+        self.center_camera_no_video_label.grid(row=0, column=1, sticky="nsew")
+        self.center_camera_image_widget.grid(row=0, column=1, sticky="nsew")
+        self.center_camera_info_label.grid(row=0, column=1, sticky="se")
         self.right_sidebar_frame.grid(row=0, column=2, rowspan=4, sticky="nsew")
 
         # Tooltips
@@ -726,29 +731,31 @@ class CamScanApp(ctk.CTk):
         # Hotkeys
         self.bind(sequence=CAPTURE_KEYBIND, func=lambda _: self.capture_image())
 
+        camera_names = self.camera_manager.get_camera_names()
+        if camera_names:
+            self.set_camera(self.camera_manager.get_camera_by_name(camera_names[0]))
+
         self.show_frame()
 
-        self.update_available_cameras()
-        if self.camera_names:
-            self.set_camera_by_name(self.camera_names[0])
+    def show_camera_settings(self) -> None:
+        if self.camera is not None:
+            self.camera.show_settings()
 
-    def set_camera_by_name(self, name: str) -> None:
-        """Function for changing the camera device"""
-        self.camera.set_index(index=self.camera_name_to_index_mapping[name])
+    def set_camera(self, camera: Camera) -> None:
+        self.camera = camera
+        self.center_camera_info_label.configure(text=self.camera.info_string)
 
-    def update_available_cameras(self) -> None:
-        """Function for updating the available camera device indices"""
-        camera_names = []
-        camera_indices = []
+    def set_camera_resolution(self, value: str | tuple[int, int]) -> None:
+        if self.camera is None:
+            tk_messagebox.showerror(title="Error", message="No camera available")
+            return
 
-        for camera in get_available_cameras():
-            if camera.index not in camera_indices:
-                camera_indices.append(camera.index)
-                camera_names.append(camera.name)
-
-        self.camera_names = camera_names
-        self.camera_name_to_index_mapping = dict(zip(camera_names, camera_indices))
-        self.camera_index_to_name_mapping = dict(zip(camera_indices, camera_names))
+        try:
+            self.camera.set_resolution(value)
+        except ValueError as e:
+            tk_messagebox.showerror(title="Error", message=str(e))
+        finally:
+            self.center_camera_info_label.configure(text=self.camera.info_string)
 
     def capture(self) -> ModelResult | None:
         """
@@ -756,6 +763,11 @@ class CamScanApp(ctk.CTk):
         algorithm on the resulting image.
         :return: A ScanResult or None if we could not read a frame successfully.
         """
+
+        if self.camera is None:
+            tk_messagebox.showerror(title="Error", message="No camera available")
+            return None
+
         img_capture = self.camera.capture()
 
         if img_capture is not None:
@@ -769,8 +781,8 @@ class CamScanApp(ctk.CTk):
         central widget of the application.
         """
         # Get the current width and height of the camera widget area
-        max_width = self.camera_image_widget.winfo_width()
-        max_height = self.camera_image_widget.winfo_height()
+        max_width = self.center_camera_image_widget.winfo_width()
+        max_height = self.center_camera_image_widget.winfo_height()
 
         # At startup, this area might still be of size zero. If so, try later
         if not (max_width > 1 and max_height > 1):
@@ -783,11 +795,15 @@ class CamScanApp(ctk.CTk):
 
         if result is None:
             # If there was no image captured, lift the 'No Camera' widget on top
-            self.capture_image_label.lift()
+            self.center_camera_no_video_label.grid()
+            self.center_camera_image_widget.grid_remove()
         elif result.error_message:
-            self.capture_image_label.configure(text=result.error_message)
-            self.capture_image_label.lift()
+            self.center_camera_no_video_label.configure(text=result.error_message)
+            self.center_camera_no_video_label.grid()
+            self.center_camera_image_widget.grid_remove()
         else:
+            self.center_camera_image_widget.grid()
+            self.center_camera_no_video_label.grid_remove()
             if self.var_debug_mode.get():
                 debug_images = list(result.debug_images.values())
                 debug_labels = list(result.debug_images.keys())
@@ -799,10 +815,8 @@ class CamScanApp(ctk.CTk):
                 )
                 image = opencv_to_ctk_image(image=debug_image)
                 # Update the camera image widget
-                self.camera_image_widget.photo = image
-                self.camera_image_widget.configure(image=image)
-                # Ensure the camera image widget is top of the 'No Camera' widget
-                self.camera_image_widget.lift()
+                self.center_camera_image_widget.photo = image
+                self.center_camera_image_widget.configure(image=image)
             else:
                 # Apply the current postprocessing to the image before displaying
                 postprocessing_option = self.var_postprocessing_option.get()
@@ -825,10 +839,8 @@ class CamScanApp(ctk.CTk):
                 else:
                     image = opencv_to_ctk_image(image=image)
                 # Update the camera image widget
-                self.camera_image_widget.photo = image
-                self.camera_image_widget.configure(image=image)
-                # Ensure the camera image widget is top of the 'No Camera' widget
-                self.camera_image_widget.lift()
+                self.center_camera_image_widget.photo = image
+                self.center_camera_image_widget.configure(image=image)
 
         # Run again after a delay
         self.after(ms=CAMERA_FEED_WAIT_MS, func=self.show_frame)
@@ -1112,29 +1124,18 @@ class CamScanApp(ctk.CTk):
         separate window with the available configuration.
         """
 
+        def _set_camera_by_name(name: str) -> None:
+            self.set_camera(self.camera_manager.get_camera_by_name(name))
+
         def _identify_available_cameras_event() -> None:
             """Callback for updating the available cameras"""
-            self.update_available_cameras()
-            camera_name_combobox.configure(values=self.camera_names)
+            self.camera_manager.update_available_cameras()
+            camera_names = self.camera_manager.get_camera_names()
+            camera_name_combobox.configure(values=camera_names)
 
-            if self.camera_names:
-                camera_name_combobox.set(value=self.camera_names[0])
-                self.set_camera_by_name(self.camera_names[0])
-
-        def _set_camera_resolution(resolution_string: str) -> None:
-            """Set the camera resolution from a resolution string"""
-            regex = re.compile(r"^(\d+)x(\d+)$")
-            matches = regex.findall(resolution_string)
-            if matches:
-                resolution = (int(matches[0][0]), int(matches[0][1]))
-                self.camera.set_resolution(resolution=resolution)
-            else:
-                tk_messagebox.showerror(
-                    title="Error",
-                    message=(
-                        "The resolution string must be on the form '<width>x<height>'"
-                    ),
-                )
+            if camera_names:
+                camera_name_combobox.set(value=camera_names[0])
+                self.set_camera(self.camera_manager.get_camera_by_name(camera_names[0]))
 
         # Create a new top-level window for the camera configuration
         window = ctk.CTkToplevel()
@@ -1142,10 +1143,10 @@ class CamScanApp(ctk.CTk):
         window.title("Camera Configuration")
 
         # Define the variables
-        current_resolution_string = "x".join(map(str, self.camera.resolution))
-        var_camera_name = tk.StringVar(
-            value=self.camera_index_to_name_mapping.get(self.camera.index, None)
+        current_resolution_string = (
+            self.camera.get_resoltion_string() if self.camera is not None else None
         )
+        var_camera_name = tk.StringVar(value=self.camera.name if self.camera else None)
         var_camera_resolution = tk.StringVar(value=current_resolution_string)
         var_custom_camera_resolution = tk.StringVar(value=current_resolution_string)
 
@@ -1156,8 +1157,8 @@ class CamScanApp(ctk.CTk):
         )
         camera_name_combobox = ctk.CTkOptionMenu(
             master=window,
-            values=self.camera_names,
-            command=self.set_camera_by_name,
+            values=self.camera_manager.get_camera_names(),
+            command=_set_camera_by_name,
             state="readonly",
             variable=var_camera_name,
         )
@@ -1173,7 +1174,7 @@ class CamScanApp(ctk.CTk):
         camera_resolution_combobox = ctk.CTkOptionMenu(
             master=window,
             values=RESOLUTIONS,
-            command=_set_camera_resolution,
+            command=self.set_camera_resolution,
             variable=var_camera_resolution,
         )
         custom_camera_resolution_label = ctk.CTkLabel(
@@ -1187,8 +1188,8 @@ class CamScanApp(ctk.CTk):
         custom_camera_resolution_button = ctk.CTkButton(
             master=window,
             text="Set Custom Resolution",
-            command=functools.partial(
-                _set_camera_resolution, var_custom_camera_resolution.get()
+            command=lambda: self.set_camera_resolution(
+                var_custom_camera_resolution.get()
             ),
         )
 
