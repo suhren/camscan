@@ -731,9 +731,7 @@ class CamScanApp(ctk.CTk):
         # Hotkeys
         self.bind(sequence=CAPTURE_KEYBIND, func=lambda _: self.capture_image())
 
-        camera_names = self.camera_manager.get_camera_names()
-        if camera_names:
-            self.set_camera(self.camera_manager.get_camera_by_name(camera_names[0]))
+        self.set_camera(self.camera_manager.get_first_usable_camera())
 
         self.show_frame()
 
@@ -741,9 +739,11 @@ class CamScanApp(ctk.CTk):
         if self.camera is not None:
             self.camera.show_settings()
 
-    def set_camera(self, camera: Camera) -> None:
+    def set_camera(self, camera: Camera | None) -> None:
         self.camera = camera
-        self.center_camera_info_label.configure(text=self.camera.info_string)
+        self.center_camera_info_label.configure(
+            text=self.camera.info_string if self.camera is not None else ""
+        )
 
     def set_camera_resolution(self, value: str | tuple[int, int]) -> None:
         if self.camera is None:
@@ -1130,12 +1130,11 @@ class CamScanApp(ctk.CTk):
         def _identify_available_cameras_event() -> None:
             """Callback for updating the available cameras"""
             self.camera_manager.update_available_cameras()
-            camera_names = self.camera_manager.get_camera_names()
-            camera_name_combobox.configure(values=camera_names)
-
-            if camera_names:
-                camera_name_combobox.set(value=camera_names[0])
-                self.set_camera(self.camera_manager.get_camera_by_name(camera_names[0]))
+            camera_name_combobox.configure(
+                values=self.camera_manager.get_camera_names()
+            )
+            if self.camera is None:
+                self.set_camera(self.camera_manager.get_first_usable_camera())
 
         # Create a new top-level window for the camera configuration
         window = ctk.CTkToplevel()

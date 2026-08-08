@@ -67,10 +67,12 @@ class Camera:
     def info_string(self) -> str:
         return f"{self.info} ({self.resolution[0]}x{self.resolution[1]})"
 
-    def initialize(self, attempts: int = 3) -> None:
+    def initialize(self, attempts: int = 3) -> bool:
         """
         Initialize the camera by opening a video capture feed using settings
         like resolution and framerate specified in this instance.
+        :param attempts: Number of attempts to retry opening the cv2.VideoCapture
+        :return: True if the VideoCapture was initialized successfully, False otherwise.
         """
         for _ in range(attempts):
             self._video_capture = cv2.VideoCapture(
@@ -81,12 +83,13 @@ class Camera:
                 logger.debug(f"VideoCapture initialized for '{self.display_name}'")
                 self.set_target_fps(self.target_fps)
                 self.set_resolution(self.resolution)
-                return
+                return True
 
         logger.error(
             f"Could not initialize VideoCapture object for '{self.display_name}'"
             f" after {attempts} attempts"
         )
+        return False
 
     @classmethod
     def resolution_string_to_tuple(cls, string: str) -> tuple:
@@ -182,3 +185,13 @@ class CameraManager:
         for info in enumerate_cameras(apiPreference=API_PREFERENCE):
             camera = Camera(info=info)
             self._cameras[camera.display_name] = camera
+
+    def get_first_usable_camera(self) -> Camera | None:
+        """
+        Return the first camera that is "usable" by trying to open its VideoCapture.
+        :return: The first usable camera, or None if none are available or usable.
+        """
+        for camera in self._cameras.values():
+            if camera.initialize():
+                return camera
+        return None
