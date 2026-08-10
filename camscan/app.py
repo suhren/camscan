@@ -10,12 +10,8 @@ import functools
 import os
 import tkinter as tk
 import typing as t
-from tkinter import (
-    filedialog as tk_filedialog,
-)
-from tkinter import (
-    messagebox as tk_messagebox,
-)
+from tkinter import filedialog as tk_filedialog
+from tkinter import messagebox as tk_messagebox
 
 import customtkinter as ctk
 import cv2
@@ -27,7 +23,6 @@ from camscan import (
     postprocessing,
     types,
     utils,
-    widgets,
 )
 from camscan.camera import Camera, CameraManager
 from camscan.logging import logger
@@ -41,6 +36,9 @@ from camscan.model.models.find_contours import FindContours
 from camscan.model.models.grabcut_contours import GrabCutConotours
 from camscan.model.models.grabcut_hough import GrabCutHough
 from camscan.model.models.simple_hough import SimpleHough
+from camscan.widgets.camera_settings import CameraSettingsConfiguration
+from camscan.widgets.input import InputFloat, InputInt
+from camscan.widgets.tooltip import Tooltip
 
 MODELS: dict[str, BaseModel] = {
     "SimpleHough": SimpleHough(),
@@ -678,52 +676,52 @@ class CamScanApp(ctk.CTk):
 
         # Tooltips
         # Left menu
-        widgets.Tooltip(
+        Tooltip(
             widget=self.configure_camera_button,
             text=TOOLTIPS["camera_configuration"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=self.camera_settings_button,
             text=TOOLTIPS["camera_driver_settings"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=self.postprocessing_option_menu,
             text=TOOLTIPS["postprocessing"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=self.appearance_mode_option_menu,
             text=TOOLTIPS["system_appearance"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=self.scaling_option_menu,
             text=TOOLTIPS["system_ui_scaling"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=self.free_capture_setting_check_box,
             text=TOOLTIPS["free_capture_mode"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=self.two_page_setting_check_box,
             text=TOOLTIPS["two_page_mode"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=self.capture_image_button,
             text=TOOLTIPS["capture"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=self.export_separate_captures_button,
             text=TOOLTIPS["export_separate"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=self.export_merged_captures_button,
             text=TOOLTIPS["export_merged"],
         )
         # Right menu
-        widgets.Tooltip(
+        Tooltip(
             widget=self.select_all_captures_check_box,
             text=TOOLTIPS["select_all"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=self.delete_captures_button,
             text=TOOLTIPS["delete"],
         )
@@ -737,7 +735,8 @@ class CamScanApp(ctk.CTk):
 
     def show_camera_settings(self) -> None:
         if self.camera is not None:
-            self.camera.show_settings()
+            # self.camera.show_settings()
+            CameraSettingsConfiguration(master=self, camera=self.camera)
 
     def set_camera(self, camera: Camera | None) -> None:
         self.camera = camera
@@ -765,7 +764,6 @@ class CamScanApp(ctk.CTk):
         """
 
         if self.camera is None:
-            tk_messagebox.showerror(title="Error", message="No camera available")
             return None
 
         img_capture = self.camera.capture()
@@ -1143,7 +1141,7 @@ class CamScanApp(ctk.CTk):
 
         # Define the variables
         current_resolution_string = (
-            self.camera.get_resoltion_string() if self.camera is not None else None
+            self.camera.get_resolution_string() if self.camera is not None else None
         )
         var_camera_name = tk.StringVar(value=self.camera.name if self.camera else None)
         var_camera_resolution = tk.StringVar(value=current_resolution_string)
@@ -1204,19 +1202,19 @@ class CamScanApp(ctk.CTk):
         custom_camera_resolution_button.pack(padx=10, pady=(5, 20))
 
         # Add tooltips
-        widgets.Tooltip(
+        Tooltip(
             widget=camera_name_combobox,
             text=TOOLTIPS["camera_name"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=find_camera_indices_button,
             text=TOOLTIPS["identify_cameras"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=camera_resolution_combobox,
             text=TOOLTIPS["camera_resolution"],
         )
-        widgets.Tooltip(
+        Tooltip(
             widget=custom_camera_resolution_button,
             text=TOOLTIPS["custom_camera_resolution"],
         )
@@ -1248,7 +1246,7 @@ class CamScanApp(ctk.CTk):
 
         for p in self.model.parameters:
             if isinstance(p, IntParameter):
-                widgets.InputInt(
+                InputInt(
                     master=window,
                     label=p.name,
                     value=p.value,
@@ -1259,7 +1257,7 @@ class CamScanApp(ctk.CTk):
                 )
 
             elif isinstance(p, FloatParameter):
-                widgets.InputFloat(
+                InputFloat(
                     master=window,
                     label=p.name,
                     value=p.value,
