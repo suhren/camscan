@@ -22,7 +22,7 @@ class GrabCutConotours(BaseModel):
                     name="margin", value=0.05, min_value=0.01, max_value=0.25
                 ),
                 IntParameter(
-                    name="grabcut_iter_count", value=1, min_value=1, max_value=10
+                    name="grabcut_iter_count", value=3, min_value=1, max_value=10
                 ),
             ]
         )

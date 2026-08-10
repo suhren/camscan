@@ -4,6 +4,7 @@ This module provides an abstracted Camera class wrapping OpenCV video capture.
 
 import platform
 import re
+from dataclasses import dataclass
 
 import cv2
 from cv2_enumerate_cameras import enumerate_cameras
@@ -22,6 +23,25 @@ else:
 
 
 RE_RES_STR = re.compile(r"^(\d+)x(\d+)$")
+
+
+CV2_PROP_INDEX_NAME_MAPPING = {
+    getattr(cv2, field): field for field in dir(cv2) if field.startswith("CAP_PROP")
+}
+
+
+@dataclass
+class CapProp:
+    """
+    Helper object keeping track of cv2 CAP_PROP constants names, indices, and values.
+    :param name: The attribute name
+    :param index: The index
+    :param value: The current property value
+    """
+
+    name: str
+    index: int
+    value: float
 
 
 class CameraError(Exception):
@@ -106,7 +126,7 @@ class Camera:
         if self._video_capture is not None:
             self._video_capture.set(cv2.CAP_PROP_FPS, self.target_fps)
 
-    def get_resoltion_string(self) -> str:
+    def get_resolution_string(self) -> str:
         return f"{self.resolution[0]}x{self.resolution[1]}"
 
     def set_resolution(self, value: tuple[int, int] | str) -> None:
@@ -156,6 +176,54 @@ class Camera:
             return None
 
         return img_capture
+
+    def set_property_value(self, index: int, value: float) -> None:
+        if (name := CV2_PROP_INDEX_NAME_MAPPING.get(index)) is None:
+            raise CameraError(f"Unknown property index {index}")
+
+        if self._video_capture is None:
+            raise CameraError("VideoCapture object has not been initialized")
+
+        try:
+            self._video_capture.set(index, value)
+            logger.debug(f"Set property {name} to {value}")
+        except cv2.error as e:
+            message = f"Failed setting property {name} to {value}: {e}"
+            logger.error(message)
+            raise CameraError(message) from e
+
+    def get_capture_properties(
+        self,
+        only_valid: bool = True,
+        only_configurable: bool = False,
+    ) -> list[CapProp]:
+        """
+        Get all the cv2 CAP_PROP objects.
+        :param only_valid: If True, only include props not set to -1
+        :param only_configurable: If True, only include props that can be configured
+        :return: A list of CapProp objects
+        :raises CameraError: If the VideoCapture is not initialized
+        """
+        if self._video_capture is None:
+            raise CameraError("VideoCapture object has not been initialized")
+
+        result = []
+        for index, name in CV2_PROP_INDEX_NAME_MAPPING.items():
+            current_value = self._video_capture.get(index)
+
+            if only_valid and current_value == -1:
+                continue
+
+            if only_configurable:
+                try:
+                    # Try setting the current value again and see if it is configurable
+                    self._video_capture.set(index, current_value)
+                except cv2.error:
+                    continue
+
+            result.append(CapProp(name=name, index=index, value=current_value))
+
+        return result
 
 
 class CameraManager:
