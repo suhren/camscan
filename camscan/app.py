@@ -17,152 +17,13 @@ import customtkinter as ctk
 import cv2
 from PIL import Image as PIL_Image
 
-from camscan import (
-    __app_display_name__,
-    __version__,
-    postprocessing,
-    types,
-    utils,
-)
-from camscan.camera import Camera, CameraManager
+from camscan import config, types, utils
+from camscan.camera import CameraManager
 from camscan.logging import logger
-from camscan.model.model import (
-    BaseModel,
-    FloatParameter,
-    IntParameter,
-    ModelResult,
-)
-from camscan.model.models.find_contours import FindContours
-from camscan.model.models.grabcut_contours import GrabCutConotours
-from camscan.model.models.grabcut_hough import GrabCutHough
-from camscan.model.models.simple_hough import SimpleHough
-from camscan.widgets.camera_settings import CameraSettingsConfiguration
+from camscan.model.model import FloatParameter, IntParameter, ModelResult
+from camscan.widgets.camera_configuration import CameraConfiguration
 from camscan.widgets.input import InputFloat, InputInt
 from camscan.widgets.tooltip import Tooltip
-
-MODELS: dict[str, BaseModel] = {
-    "SimpleHough": SimpleHough(),
-    "GrabCutHough": GrabCutHough(),
-    "FindContours": FindContours(),
-    "GrabCutConotours": GrabCutConotours(),
-}
-
-DEFAULT_MODEL_OPTION = "GrabCutConotours"
-
-# Define the window title
-WINDOW_TITLE = f"{__app_display_name__} {__version__}"
-
-# Define the initial application window size
-WINDOW_WIDTH = 1536
-WINDOW_HEIGHT = 864
-
-# Define the to wait before updating the camera feed (20ms)
-CAMERA_FEED_WAIT_MS = 20
-
-# Define constants related to the styling of widgets in the GUI
-LEFT_MENU_PAD_X = 20
-LEFT_MENU_PAD_Y = 5
-RIGHT_MENU_PAD_X = 10
-RIGHT_MENU_PAD_Y = 5
-LEFT_MENU_PACK_KWARGS = {"padx": LEFT_MENU_PAD_X, "pady": LEFT_MENU_PAD_Y}
-RIGHT_MENU_PACK_KWARGS = {"padx": RIGHT_MENU_PAD_X, "pady": RIGHT_MENU_PAD_Y}
-
-# Keybind used to capture images with the cameras
-CAPTURE_KEYBIND = "<space>"
-
-# Specify supported file formats when exporting images as separate files.
-# See the OpenCV documentation for more information on the supported file types:
-# https://docs.opencv.org/3.4/d4/da8/group__imgcodecs.html
-EXPORT_SEPARATE_FILE_TYPES = [
-    "png",
-    "bmp",
-    "dib",
-    "jpeg",
-    "jpg",
-    "jpe",
-    "jp2",
-    "webp",
-    "pbm",
-    "pgm",
-    "ppm",
-    "pxm",
-    "pnm",
-    "sr",
-    "ras",
-    "tiff",
-    "tif",
-    "exr",
-    "hdr",
-    "pic",
-]
-
-# Specify supported file formats when exporting images as a single merged file
-EXPORT_MERGED_FILE_TYPES = [
-    "pdf",
-]
-
-# Specify the supported postprocessing functions for the captured images
-POSTPROCESSING_OPTIONS = {
-    "None": postprocessing.dummy,
-    "Sharpen": postprocessing.sharpen,
-    "Grayscale": postprocessing.grayscale,
-    "Black and White": postprocessing.black_and_white,
-}
-
-DEFAULT_POSTPROCESSING_OPTION = "None"
-
-# Define the list of pre-defined camera resolutions. In addition to these, the
-# user can also enter custom resolutions manually.
-RESOLUTIONS = [
-    "3264x2448",
-    "3264x1836",
-    "2592x1944",
-    "2048x1536",
-    "1920x1080",
-    "1600x1200",
-    "1280x720",
-    "1024x768",
-    "800x600",
-    "640x480",
-]
-
-# Collection of tooltip strings shown for various widgets
-TOOLTIPS = {
-    # Left panel
-    "camera_configuration": (
-        "Open camera configuration for selecting camera and resolution"
-    ),
-    "camera_driver_settings": (
-        "Open camera driver settings dialog (determined by the selected camera)"
-    ),
-    "postprocessing": "Set the postprocessing effect applied to the captured images",
-    "system_appearance": "Set the user interface appearance of the application",
-    "system_ui_scaling": "Set the user interface scale of the application",
-    "free_capture_mode": (
-        "Ignore the document detection algorithm and capture the entire image"
-    ),
-    "two_page_mode": "Split the captured image into equal left and right parts",
-    "capture": (
-        f"Capture an image and save to the captures pane (key bind {CAPTURE_KEYBIND})"
-    ),
-    "export_separate": "Export captures as separate files in a directory",
-    "export_merged": "Export captures as a single merged file",
-    # Right panel
-    "select_all": "Select or deselect all captures",
-    "delete": "Delete the selected captures",
-    # Camera Configuration Window
-    "camera_name": (
-        "Select a camera by choosing its name. Update this list with available"
-        " devices using the camera identification button."
-    ),
-    "identify_cameras": (
-        "Identify available cameras on the system and populate the camera list"
-    ),
-    "camera_resolution": "Set the camera resolution from a preset list of resolutions",
-    "custom_camera_resolution": (
-        "Set a custom camera resolution using a string on the form <width>x<height>"
-    ),
-}
 
 
 def get_timestamp_str() -> str:
@@ -330,7 +191,7 @@ class CaptureEntry:
         Open an image viewer window displaying the current image of this Entry.
         """
         window = ctk.CTkToplevel()
-        window.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+        window.geometry(f"{config.WINDOW_WIDTH}x{config.WINDOW_HEIGHT}")
         window.title(self.name)
 
         frame_widget = ctk.CTkFrame(master=window)
@@ -409,30 +270,29 @@ class CamScanApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
 
-        self.camera_manager: CameraManager = CameraManager()
-        self.camera: Camera | None = None
+        self.cm: CameraManager = CameraManager()
 
         self.entries: list[CaptureEntry] = []
         self.var_postprocessing_option = tk.StringVar(
-            value=DEFAULT_POSTPROCESSING_OPTION
+            value=config.DEFAULT_POSTPROCESSING_OPTION
         )
-        self.var_model_option = tk.StringVar(value=DEFAULT_MODEL_OPTION)
-        self.model = MODELS[DEFAULT_MODEL_OPTION]
+        self.var_model_option = tk.StringVar(value=config.DEFAULT_MODEL_OPTION)
+        self.model = config.MODELS[config.DEFAULT_MODEL_OPTION]
         self.var_debug_mode = tk.IntVar(value=0)
         self.var_two_page_mode = tk.IntVar(value=0)
         self.var_free_capture_mode = tk.IntVar(value=0)
         self.var_select_all_captures = tk.IntVar(value=0)
         self.var_merged_captures_file_type = tk.StringVar(
-            value=EXPORT_MERGED_FILE_TYPES[0]
+            value=config.EXPORT_MERGED_FILE_TYPES[0]
         )
         self.var_separate_captures_file_type = tk.StringVar(
-            value=EXPORT_SEPARATE_FILE_TYPES[0]
+            value=config.EXPORT_SEPARATE_FILE_TYPES[0]
         )
         self.var_select_all_captures = tk.IntVar(value=0)
 
         # configure window
-        self.title(WINDOW_TITLE)
-        self.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+        self.title(config.WINDOW_TITLE)
+        self.geometry(f"{config.WINDOW_WIDTH}x{config.WINDOW_HEIGHT}")
 
         # Configure the grid layout
         self.grid_columnconfigure((0, 2), weight=0)
@@ -450,18 +310,13 @@ class CamScanApp(ctk.CTk):
         )
 
         # Add a button for the camera settings
-        self.camera_settings_label = ctk.CTkLabel(
-            self.left_sidebar_frame, text="Camera Settings:", anchor="w"
+        self.camera_configuration_label = ctk.CTkLabel(
+            self.left_sidebar_frame, text="Camera Configuration:", anchor="w"
         )
-        self.configure_camera_button = ctk.CTkButton(
+        self.camera_configuration_button = ctk.CTkButton(
             self.left_sidebar_frame,
             text="Configure Camera",
             command=self.configure_camera_event,
-        )
-        self.camera_settings_button = ctk.CTkButton(
-            self.left_sidebar_frame,
-            text="Camera Driver Settings",
-            command=self.show_camera_settings,
         )
 
         # Add a menu for model settings
@@ -470,7 +325,7 @@ class CamScanApp(ctk.CTk):
         )
         self.model_option_menu = ctk.CTkOptionMenu(
             self.left_sidebar_frame,
-            values=list(MODELS.keys()),
+            values=list(config.MODELS.keys()),
             command=self.change_model_event,
             variable=self.var_model_option,
         )
@@ -486,7 +341,7 @@ class CamScanApp(ctk.CTk):
         )
         self.postprocessing_option_menu = ctk.CTkOptionMenu(
             self.left_sidebar_frame,
-            values=list(POSTPROCESSING_OPTIONS.keys()),
+            values=list(config.POSTPROCESSING_OPTIONS.keys()),
             command=self.change_postprocessing_event,
             variable=self.var_postprocessing_option,
         )
@@ -549,7 +404,7 @@ class CamScanApp(ctk.CTk):
         )
         self.export_separate_captures_option_menu = ctk.CTkComboBox(
             master=self.left_sidebar_frame,
-            values=sorted(EXPORT_SEPARATE_FILE_TYPES),
+            values=sorted(config.EXPORT_SEPARATE_FILE_TYPES),
             variable=self.var_separate_captures_file_type,
             state="readonly",
         )
@@ -565,7 +420,7 @@ class CamScanApp(ctk.CTk):
         )
         self.export_merged_captures_option_menu = ctk.CTkComboBox(
             master=self.left_sidebar_frame,
-            values=sorted(EXPORT_MERGED_FILE_TYPES),
+            values=sorted(config.EXPORT_MERGED_FILE_TYPES),
             variable=self.var_merged_captures_file_type,
             state="readonly",
         )
@@ -576,30 +431,29 @@ class CamScanApp(ctk.CTk):
         )
 
         # Organize left menu items
-        self.left_sidebar_title_label.pack(padx=LEFT_MENU_PAD_X, pady=20)
-        self.camera_settings_label.pack(**LEFT_MENU_PACK_KWARGS)
-        self.configure_camera_button.pack(**LEFT_MENU_PACK_KWARGS)
-        self.camera_settings_button.pack(**LEFT_MENU_PACK_KWARGS)
-        self.model_settings_label.pack(**LEFT_MENU_PACK_KWARGS)
-        self.model_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
-        self.configure_model_button.pack(**LEFT_MENU_PACK_KWARGS)
-        self.postprocessing_menu_label.pack(**LEFT_MENU_PACK_KWARGS)
-        self.postprocessing_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
-        self.appearance_mode_label.pack(**LEFT_MENU_PACK_KWARGS)
-        self.appearance_mode_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
-        self.scaling_label.pack(**LEFT_MENU_PACK_KWARGS)
-        self.scaling_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
-        self.debug_mode_check_box.pack(**LEFT_MENU_PACK_KWARGS)
-        self.capture_image_label.pack(**LEFT_MENU_PACK_KWARGS)
-        self.free_capture_setting_check_box.pack(**LEFT_MENU_PACK_KWARGS)
-        self.two_page_setting_check_box.pack(**LEFT_MENU_PACK_KWARGS)
-        self.capture_image_button.pack(**LEFT_MENU_PACK_KWARGS)
-        self.export_separate_captures_label.pack(**LEFT_MENU_PACK_KWARGS)
-        self.export_separate_captures_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
-        self.export_separate_captures_button.pack(**LEFT_MENU_PACK_KWARGS)
-        self.export_merged_captures_label.pack(**LEFT_MENU_PACK_KWARGS)
-        self.export_merged_captures_option_menu.pack(**LEFT_MENU_PACK_KWARGS)
-        self.export_merged_captures_button.pack(**LEFT_MENU_PACK_KWARGS)
+        self.left_sidebar_title_label.pack(padx=config.LEFT_MENU_PAD_X, pady=20)
+        self.camera_configuration_label.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.camera_configuration_button.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.model_settings_label.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.model_option_menu.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.configure_model_button.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.postprocessing_menu_label.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.postprocessing_option_menu.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.appearance_mode_label.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.appearance_mode_option_menu.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.scaling_label.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.scaling_option_menu.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.debug_mode_check_box.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.capture_image_label.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.free_capture_setting_check_box.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.two_page_setting_check_box.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.capture_image_button.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.export_separate_captures_label.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.export_separate_captures_option_menu.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.export_separate_captures_button.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.export_merged_captures_label.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.export_merged_captures_option_menu.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.export_merged_captures_button.pack(**config.LEFT_MENU_PACK_KWARGS)
 
         # Configure the central widget showing the camera feed
         self.center_camera_image_widget = ctk.CTkLabel(self, text=None, padx=0, pady=0)
@@ -637,7 +491,7 @@ class CamScanApp(ctk.CTk):
         )
         self.scrollable_frame.grid_columnconfigure(0, weight=1)
 
-        # Add widgets for selcting all captures and deleting
+        # Add widgets for selecting all captures and deleting
         self.select_all_captures_check_box = ctk.CTkCheckBox(
             self.right_sidebar_frame,
             text="Select All",
@@ -657,14 +511,20 @@ class CamScanApp(ctk.CTk):
 
         # Organize right menu items
         self.right_sidebar_title_label.grid(
-            row=0, column=0, columnspan=2, padx=LEFT_MENU_PAD_X, pady=20
+            row=0, column=0, columnspan=2, padx=config.LEFT_MENU_PAD_X, pady=20
         )
         self.select_all_captures_check_box.grid(
-            row=1, column=0, **RIGHT_MENU_PACK_KWARGS
+            row=1, column=0, **config.RIGHT_MENU_PACK_KWARGS
         )
-        self.delete_captures_button.grid(row=1, column=1, **RIGHT_MENU_PACK_KWARGS)
+        self.delete_captures_button.grid(
+            row=1, column=1, **config.RIGHT_MENU_PACK_KWARGS
+        )
         self.scrollable_frame.grid(
-            row=2, column=0, columnspan=2, sticky="nsew", **RIGHT_MENU_PACK_KWARGS
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="nsew",
+            **config.RIGHT_MENU_PACK_KWARGS,
         )
 
         # Organize main frames
@@ -677,84 +537,55 @@ class CamScanApp(ctk.CTk):
         # Tooltips
         # Left menu
         Tooltip(
-            widget=self.configure_camera_button,
-            text=TOOLTIPS["camera_configuration"],
-        )
-        Tooltip(
-            widget=self.camera_settings_button,
-            text=TOOLTIPS["camera_driver_settings"],
+            widget=self.camera_configuration_button,
+            text=config.TOOLTIPS["camera_configuration"],
         )
         Tooltip(
             widget=self.postprocessing_option_menu,
-            text=TOOLTIPS["postprocessing"],
+            text=config.TOOLTIPS["postprocessing"],
         )
         Tooltip(
             widget=self.appearance_mode_option_menu,
-            text=TOOLTIPS["system_appearance"],
+            text=config.TOOLTIPS["system_appearance"],
         )
         Tooltip(
             widget=self.scaling_option_menu,
-            text=TOOLTIPS["system_ui_scaling"],
+            text=config.TOOLTIPS["system_ui_scaling"],
         )
         Tooltip(
             widget=self.free_capture_setting_check_box,
-            text=TOOLTIPS["free_capture_mode"],
+            text=config.TOOLTIPS["free_capture_mode"],
         )
         Tooltip(
             widget=self.two_page_setting_check_box,
-            text=TOOLTIPS["two_page_mode"],
+            text=config.TOOLTIPS["two_page_mode"],
         )
         Tooltip(
             widget=self.capture_image_button,
-            text=TOOLTIPS["capture"],
+            text=config.TOOLTIPS["capture"],
         )
         Tooltip(
             widget=self.export_separate_captures_button,
-            text=TOOLTIPS["export_separate"],
+            text=config.TOOLTIPS["export_separate"],
         )
         Tooltip(
             widget=self.export_merged_captures_button,
-            text=TOOLTIPS["export_merged"],
+            text=config.TOOLTIPS["export_merged"],
         )
         # Right menu
         Tooltip(
             widget=self.select_all_captures_check_box,
-            text=TOOLTIPS["select_all"],
+            text=config.TOOLTIPS["select_all"],
         )
         Tooltip(
             widget=self.delete_captures_button,
-            text=TOOLTIPS["delete"],
+            text=config.TOOLTIPS["delete"],
         )
 
         # Hotkeys
-        self.bind(sequence=CAPTURE_KEYBIND, func=lambda _: self.capture_image())
-
-        self.set_camera(self.camera_manager.get_first_usable_camera())
+        self.bind(sequence=config.CAPTURE_KEYBIND, func=lambda _: self.capture_image())
 
         self.show_frame()
-
-    def show_camera_settings(self) -> None:
-        if self.camera is not None:
-            # self.camera.show_settings()
-            CameraSettingsConfiguration(master=self, camera=self.camera)
-
-    def set_camera(self, camera: Camera | None) -> None:
-        self.camera = camera
-        self.center_camera_info_label.configure(
-            text=self.camera.info_string if self.camera is not None else ""
-        )
-
-    def set_camera_resolution(self, value: str | tuple[int, int]) -> None:
-        if self.camera is None:
-            tk_messagebox.showerror(title="Error", message="No camera available")
-            return
-
-        try:
-            self.camera.set_resolution(value)
-        except ValueError as e:
-            tk_messagebox.showerror(title="Error", message=str(e))
-        finally:
-            self.center_camera_info_label.configure(text=self.camera.info_string)
 
     def capture(self) -> ModelResult | None:
         """
@@ -763,10 +594,10 @@ class CamScanApp(ctk.CTk):
         :return: A ScanResult or None if we could not read a frame successfully.
         """
 
-        if self.camera is None:
+        if self.cm.camera is None:
             return None
 
-        img_capture = self.camera.capture()
+        img_capture = self.cm.camera.capture()
 
         if img_capture is not None:
             return self.model.run(img_capture)
@@ -785,8 +616,12 @@ class CamScanApp(ctk.CTk):
         # At startup, this area might still be of size zero. If so, try later
         if not (max_width > 1 and max_height > 1):
             # Run again after a delay
-            self.after(ms=CAMERA_FEED_WAIT_MS, func=self.show_frame)
+            self.after(ms=config.CAMERA_FEED_WAIT_MS, func=self.show_frame)
             return
+
+        self.center_camera_info_label.configure(
+            text=self.cm.camera.info_string if self.cm.camera is not None else ""
+        )
 
         # Capture an image and the resulting detected contour from the camera
         result = self.capture()
@@ -818,7 +653,9 @@ class CamScanApp(ctk.CTk):
             else:
                 # Apply the current postprocessing to the image before displaying
                 postprocessing_option = self.var_postprocessing_option.get()
-                postprocessing_function = POSTPROCESSING_OPTIONS[postprocessing_option]
+                postprocessing_function = config.POSTPROCESSING_OPTIONS[
+                    postprocessing_option
+                ]
                 image = postprocessing_function(result.img)
                 # The image must have three color channels, so convert if needed
                 if len(image.shape) == 2:
@@ -841,7 +678,7 @@ class CamScanApp(ctk.CTk):
                 self.center_camera_image_widget.configure(image=image)
 
         # Run again after a delay
-        self.after(ms=CAMERA_FEED_WAIT_MS, func=self.show_frame)
+        self.after(ms=config.CAMERA_FEED_WAIT_MS, func=self.show_frame)
 
     def capture_image(self) -> None:
         """
@@ -1108,127 +945,21 @@ class CamScanApp(ctk.CTk):
         :param entries: The capture entries to apply the postprocessing to
         """
         postprocessing_option = self.var_postprocessing_option.get()
-        postprocessing_function = POSTPROCESSING_OPTIONS[postprocessing_option]
+        postprocessing_function = config.POSTPROCESSING_OPTIONS[postprocessing_option]
         for entry in entries:
             new_image = postprocessing_function(entry.original_image)
             entry.set_current_image(image=new_image)
 
     def change_model_event(self, *args: t.Any) -> None:
-        self.model = MODELS[self.var_model_option.get()]
+        self.model = config.MODELS[self.var_model_option.get()]
 
     def configure_camera_event(self) -> None:
         """
         Handle the event for configuring the camera. This is done by opening a
         separate window with the available configuration.
         """
-
-        def _set_camera_by_name(name: str) -> None:
-            self.set_camera(self.camera_manager.get_camera_by_name(name))
-
-        def _identify_available_cameras_event() -> None:
-            """Callback for updating the available cameras"""
-            self.camera_manager.update_available_cameras()
-            camera_name_combobox.configure(
-                values=self.camera_manager.get_camera_names()
-            )
-            if self.camera is None:
-                self.set_camera(self.camera_manager.get_first_usable_camera())
-
-        # Create a new top-level window for the camera configuration
-        window = ctk.CTkToplevel()
-        window.resizable(width=False, height=False)
-        window.title("Camera Configuration")
-
-        # Define the variables
-        current_resolution_string = (
-            self.camera.get_resolution_string() if self.camera is not None else None
-        )
-        var_camera_name = tk.StringVar(value=self.camera.name if self.camera else None)
-        var_camera_resolution = tk.StringVar(value=current_resolution_string)
-        var_custom_camera_resolution = tk.StringVar(value=current_resolution_string)
-
-        # Define the widgets
-        camera_name_label = ctk.CTkLabel(
-            master=window,
-            text="Select Camera:",
-        )
-        camera_name_combobox = ctk.CTkOptionMenu(
-            master=window,
-            values=self.camera_manager.get_camera_names(),
-            command=_set_camera_by_name,
-            state="readonly",
-            variable=var_camera_name,
-        )
-        find_camera_indices_button = ctk.CTkButton(
-            master=window,
-            text="Identify Available Cameras",
-            command=_identify_available_cameras_event,
-        )
-        camera_resolution_label = ctk.CTkLabel(
-            master=window,
-            text="Camera Resolution:",
-        )
-        camera_resolution_combobox = ctk.CTkOptionMenu(
-            master=window,
-            values=RESOLUTIONS,
-            command=self.set_camera_resolution,
-            variable=var_camera_resolution,
-        )
-        custom_camera_resolution_label = ctk.CTkLabel(
-            master=window,
-            text="Custom Camera Resolution:",
-        )
-        custom_camera_resolution_entry = ctk.CTkEntry(
-            master=window, textvariable=var_custom_camera_resolution
-        )
-
-        custom_camera_resolution_button = ctk.CTkButton(
-            master=window,
-            text="Set Custom Resolution",
-            command=lambda: self.set_camera_resolution(
-                var_custom_camera_resolution.get()
-            ),
-        )
-
-        # Pack the widgets
-        pack_kwargs = {"padx": 10, "pady": 5}
-        camera_name_label.pack(padx=10, pady=(20, 5))
-        find_camera_indices_button.pack(**pack_kwargs)
-        camera_name_combobox.pack(**pack_kwargs)
-        camera_resolution_label.pack(**pack_kwargs)
-        camera_resolution_combobox.pack(**pack_kwargs)
-        custom_camera_resolution_label.pack(**pack_kwargs)
-        custom_camera_resolution_entry.pack(**pack_kwargs)
-        custom_camera_resolution_button.pack(padx=10, pady=(5, 20))
-
-        # Add tooltips
-        Tooltip(
-            widget=camera_name_combobox,
-            text=TOOLTIPS["camera_name"],
-        )
-        Tooltip(
-            widget=find_camera_indices_button,
-            text=TOOLTIPS["identify_cameras"],
-        )
-        Tooltip(
-            widget=camera_resolution_combobox,
-            text=TOOLTIPS["camera_resolution"],
-        )
-        Tooltip(
-            widget=custom_camera_resolution_button,
-            text=TOOLTIPS["custom_camera_resolution"],
-        )
-
-        # Make sure this window is on top of the main window
-        # We could simply just set topmost to True and leave it at that, but
-        # that will prevent the Tooltips from working properly. We can instead
-        # set it to topmost temporarily, use grab_set to set focus, and then
-        # set topmost back to False. This brings the window to the front.
-        # From the documentation it seems that using .lift(aboveThis=self) would
-        # work, but I was not able to make that work.
-        window.attributes("-topmost", True)
-        window.grab_set()
-        window.attributes("-topmost", False)
+        if self.cm.camera is not None:
+            CameraConfiguration(master=self, cm=self.cm)
 
     def configure_model_event(self) -> None:
         """

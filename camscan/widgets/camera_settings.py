@@ -8,9 +8,9 @@ from camscan.camera import Camera, CameraError
 from camscan.widgets.input import InputInt
 
 
-class CameraSettingsConfiguration(ctk.CTkToplevel):
+class CameraSettings(ctk.CTkToplevel):
     """
-    Configuration for a camera.
+    Settings for a camera.
     See https://docs.opencv.org/3.4.20/d4/d15/group__videoio__flags__base.html#gaeb8dd9c89c10a5c63c139bf7c4f5704d
     """
 
@@ -21,7 +21,7 @@ class CameraSettingsConfiguration(ctk.CTkToplevel):
     ) -> None:
         super().__init__(master=master)
         self.resizable(width=False, height=False)
-        self.title("Camera Configuration")
+        self.title("Camera Settings")
 
         # Make sure this window is on top of the main window
         # We could simply just set topmost to True and leave it at that, but
