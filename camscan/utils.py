@@ -1,9 +1,79 @@
+import datetime
 import math
 
+import customtkinter as ctk
 import cv2
 import numpy as np
+from PIL import Image as PIL_Image
 
 from camscan import types
+
+
+def get_timestamp_str() -> str:
+    """
+    Return the current time as a timestamp string.
+    :return: A timestamp string.
+    """
+    return datetime.datetime.now(tz=datetime.UTC).strftime(r"%Y%m%d_%H%M%S_%f")
+
+
+def opencv_to_pil_image(
+    image: types.Image,
+    width: int | None = None,
+    height: int | None = None,
+) -> PIL_Image.Image:
+    """
+    Given an OpenCV image, convert to to a PIL image. The function also supports
+    resizing the image while keeping its original aspect ratio.
+    :param image: The input OpenCV image
+    :param width: Optional width to scale the image to
+    :param height: Optional height to scale the image to
+    :raises ValueError: If the input image has a non-compatible shape
+    :return: The image converted to a PIL image
+    """
+
+    # Check if the image is a black-and-whie image (only 2 dimensions)
+    # In this case, it is only a binary 0 for black and 1 for white
+    if len(image.shape) == 2:
+        pass
+    # Check if the image has 3 color dimensions (BGR).
+    # If it does, we need to convert from OpenCV BGR to RGB before showing.
+    elif image.shape[2] == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # Check if the image has 4 color dimensions (BGRA).
+    # If it does, we need to convert from OpenCV BGRA to RGBA before showing.
+    elif image.shape[2] == 4:
+        image = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)
+    else:
+        raise ValueError(f"Unknown image shape: {image.shape}")
+
+    return PIL_Image.fromarray(
+        resize_with_aspect_ratio(
+            image=image,
+            width=width,
+            height=height,
+        )
+    )
+
+
+def opencv_to_ctk_image(
+    image: types.Image,
+    width: int | None = None,
+    height: int | None = None,
+) -> ctk.CTkImage:
+    """
+    Given an OpenCV image, convert to to a CTkImage. The function also supports
+    resizing the image while keeping its original aspect ratio.
+    :param image: The input OpenCV image
+    :param width: Optional width to scale the image to
+    :param height: Optional height to scale the image to
+    :return: The image converted to a CTkImage
+    """
+    pil_image = opencv_to_pil_image(image=image, width=width, height=height)
+    return ctk.CTkImage(
+        pil_image,
+        size=(pil_image.width, pil_image.height),
+    )
 
 
 def draw_contour(
