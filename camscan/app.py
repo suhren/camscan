@@ -5,7 +5,6 @@ part of the application, as well as the code used to handle, post process, and
 export the captured images.
 """
 
-import datetime
 import functools
 import os
 import tkinter as tk
@@ -15,82 +14,15 @@ from tkinter import messagebox as tk_messagebox
 
 import customtkinter as ctk
 import cv2
-from PIL import Image as PIL_Image
 
 from camscan import config, types, utils
 from camscan.camera import CameraManager
 from camscan.logging import logger
 from camscan.model.model import FloatParameter, IntParameter, ModelResult
 from camscan.widgets.camera_configuration import CameraConfiguration
+from camscan.widgets.image_preview import ImagePreview
 from camscan.widgets.input import InputFloat, InputInt
 from camscan.widgets.tooltip import Tooltip
-
-
-def get_timestamp_str() -> str:
-    """
-    Return the current time as a timestamp string.
-    :return: A timestamp string.
-    """
-    return datetime.datetime.now(tz=datetime.UTC).strftime(r"%Y%m%d_%H%M%S_%f")
-
-
-def opencv_to_pil_image(
-    image: types.Image,
-    width: int | None = None,
-    height: int | None = None,
-) -> PIL_Image.Image:
-    """
-    Given an OpenCV image, convert to to a PIL image. The function also supports
-    resizing the image while keeping its original aspect ratio.
-    :param image: The input OpenCV image
-    :param width: Optional width to scale the image to
-    :param height: Optional height to scale the image to
-    :raises ValueError: If the input image has a non-compatible shape
-    :return: The image converted to a PIL image
-    """
-
-    # Check if the image is a black-and-whie image (only 2 dimensions)
-    # In this case, it is only a binary 0 for black and 1 for white
-    if len(image.shape) == 2:
-        pass
-    # Check if the image has 3 color dimensions (BGR).
-    # If it does, we need to convert from OpenCV BGR to RGB before showing.
-    elif image.shape[2] == 3:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    # Check if the image has 4 color dimensions (BGRA).
-    # If it does, we need to convert from OpenCV BGRA to RGBA before showing.
-    elif image.shape[2] == 4:
-        image = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)
-    else:
-        raise ValueError(f"Unknown image shape: {image.shape}")
-
-    return PIL_Image.fromarray(
-        utils.resize_with_aspect_ratio(
-            image=image,
-            width=width,
-            height=height,
-        )
-    )
-
-
-def opencv_to_ctk_image(
-    image: types.Image,
-    width: int | None = None,
-    height: int | None = None,
-) -> ctk.CTkImage:
-    """
-    Given an OpenCV image, convert to to a CTkImage. The function also supports
-    resizing the image while keeping its original aspect ratio.
-    :param image: The input OpenCV image
-    :param width: Optional width to scale the image to
-    :param height: Optional height to scale the image to
-    :return: The image converted to a CTkImage
-    """
-    pil_image = opencv_to_pil_image(image=image, width=width, height=height)
-    return ctk.CTkImage(
-        pil_image,
-        size=(pil_image.width, pil_image.height),
-    )
 
 
 class CaptureEntry:
@@ -182,7 +114,7 @@ class CaptureEntry:
         :param image: The new OpenCV image to set the current displayed image to
         """
         self.current_image = image.copy()
-        thumbnail_image = opencv_to_ctk_image(image=image, width=230, height=400)
+        thumbnail_image = utils.opencv_to_ctk_image(image=image, width=230, height=400)
         self.image_widget.photo = thumbnail_image
         self.image_widget.configure(image=thumbnail_image)
 
@@ -210,7 +142,7 @@ class CaptureEntry:
                 return
 
             # Convert the OpenCV image to a CTkImage to display in the widget
-            new_image = opencv_to_ctk_image(
+            new_image = utils.opencv_to_ctk_image(
                 image=self.current_image, width=max_width, height=max_height
             )
             image_widget.photo = new_image
@@ -456,21 +388,7 @@ class CamScanApp(ctk.CTk):
         self.export_merged_captures_button.pack(**config.LEFT_MENU_PACK_KWARGS)
 
         # Configure the central widget showing the camera feed
-        self.center_camera_image_widget = ctk.CTkLabel(self, text=None, padx=0, pady=0)
-        self.center_camera_no_video_label = ctk.CTkLabel(
-            self,
-            text="No Video",
-            font=ctk.CTkFont(size=20, weight="bold"),
-            padx=0,
-            pady=0,
-        )
-        self.center_camera_info_label = ctk.CTkLabel(
-            self,
-            text="",
-            font=ctk.CTkFont(size=14, family="monospace"),
-            padx=0,
-            pady=0,
-        )
+        self.center_image_preview = ImagePreview(master=self)
 
         # Configure the right sidebar
         self.right_sidebar_frame = ctk.CTkFrame(self, corner_radius=0)
@@ -529,9 +447,7 @@ class CamScanApp(ctk.CTk):
 
         # Organize main frames
         self.left_sidebar_frame.grid(row=0, column=0, rowspan=4, sticky="nsew")
-        self.center_camera_no_video_label.grid(row=0, column=1, sticky="nsew")
-        self.center_camera_image_widget.grid(row=0, column=1, sticky="nsew")
-        self.center_camera_info_label.grid(row=0, column=1, sticky="se")
+        self.center_image_preview.grid(row=0, column=1, sticky="nsew")
         self.right_sidebar_frame.grid(row=0, column=2, rowspan=4, sticky="nsew")
 
         # Tooltips
@@ -609,76 +525,49 @@ class CamScanApp(ctk.CTk):
         This function is continuously called to show the camera feed in the
         central widget of the application.
         """
-        # Get the current width and height of the camera widget area
-        max_width = self.center_camera_image_widget.winfo_width()
-        max_height = self.center_camera_image_widget.winfo_height()
-
-        # At startup, this area might still be of size zero. If so, try later
-        if not (max_width > 1 and max_height > 1):
-            # Run again after a delay
-            self.after(ms=config.CAMERA_FEED_WAIT_MS, func=self.show_frame)
-            return
-
-        self.center_camera_info_label.configure(
-            text=self.cm.camera.info_string if self.cm.camera is not None else ""
-        )
+        # Get the current width and height of the image preview widget area
+        image_preview_width = self.center_image_preview.get_width()
+        image_preview_height = self.center_image_preview.get_height()
 
         # Capture an image and the resulting detected contour from the camera
         result = self.capture()
 
+        info = self.cm.camera.info_string if self.cm.camera is not None else None
+
         if result is None:
-            # If there was no image captured, lift the 'No Camera' widget on top
-            self.center_camera_no_video_label.grid()
-            self.center_camera_image_widget.grid_remove()
+            self.center_image_preview.show(message="No Video", info=info)
+
         elif result.error_message:
-            self.center_camera_no_video_label.configure(text=result.error_message)
-            self.center_camera_no_video_label.grid()
-            self.center_camera_image_widget.grid_remove()
+            self.center_image_preview.show(message=result.error_message, info=info)
+
+        elif self.var_debug_mode.get():
+            self.center_image_preview.show(
+                image=utils.images_in_grid(
+                    images=list(result.debug_images.values()),
+                    labels=list(result.debug_images.keys()),
+                    output_width=image_preview_width,
+                    output_height=image_preview_height,
+                ),
+                message=result.error_message,
+                info=info,
+            )
+
         else:
-            self.center_camera_image_widget.grid()
-            self.center_camera_no_video_label.grid_remove()
-            if self.var_debug_mode.get():
-                debug_images = list(result.debug_images.values())
-                debug_labels = list(result.debug_images.keys())
-                debug_image = utils.images_in_grid(
-                    images=debug_images,
-                    labels=debug_labels,
-                    output_width=max_width,
-                    output_height=max_height,
-                )
-                image = opencv_to_ctk_image(image=debug_image)
-                # Update the camera image widget
-                self.center_camera_image_widget.photo = image
-                self.center_camera_image_widget.configure(image=image)
-            else:
-                # Apply the current postprocessing to the image before displaying
-                postprocessing_option = self.var_postprocessing_option.get()
-                postprocessing_function = config.POSTPROCESSING_OPTIONS[
-                    postprocessing_option
-                ]
-                image = postprocessing_function(result.img)
-                # The image must have three color channels, so convert if needed
-                if len(image.shape) == 2:
-                    image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-                # If we are using the 'Free Capture' mode, skip drawing the contour
-                if not self.var_free_capture_mode.get() and result.contour is not None:
-                    image = utils.draw_contour(image=image, contour=result.contour)
-                # Convert the OpenCV image to a CTkImage to display in the widget
-                image_width = image.shape[1]
-                image_height = image.shape[0]
-                # If the image is larger than the max widget size, resize it first
-                if image_width > max_width or image_height > max_height:
-                    image = opencv_to_ctk_image(
-                        image=image, width=max_width, height=max_height
-                    )
-                else:
-                    image = opencv_to_ctk_image(image=image)
-                # Update the camera image widget
-                self.center_camera_image_widget.photo = image
-                self.center_camera_image_widget.configure(image=image)
+            # Apply the current postprocessing to the image before displaying
+            postprocessing_option = self.var_postprocessing_option.get()
+            postprocessing_function = config.POSTPROCESSING_OPTIONS[
+                postprocessing_option
+            ]
+            image = postprocessing_function(result.img)
+
+            # If we are using the 'Free Capture' mode, skip drawing the contour
+            if not self.var_free_capture_mode.get() and result.contour is not None:
+                image = utils.draw_contour(image=image, contour=result.contour)
+
+            self.center_image_preview.show(image=image, info=info)
 
         # Run again after a delay
-        self.after(ms=config.CAMERA_FEED_WAIT_MS, func=self.show_frame)
+        self.after(ms=config.CAMERA_WAIT_MS, func=self.show_frame)
 
     def capture_image(self) -> None:
         """
@@ -711,7 +600,7 @@ class CamScanApp(ctk.CTk):
             return
 
         # Give the capture a name using a timestamp string
-        timestamp_str = get_timestamp_str()
+        timestamp_str = utils.get_timestamp_str()
 
         # If we are using two-page mode, cut the image into left and right parts
         if self.var_two_page_mode.get():
@@ -857,7 +746,7 @@ class CamScanApp(ctk.CTk):
             return
 
         # Create the name of the output file as a timestamp string
-        timestamp_str = get_timestamp_str()
+        timestamp_str = utils.get_timestamp_str()
         initialfile = f"captures_{timestamp_str}.{file_type}"
 
         # Bring up a dialog asking for the output file path
@@ -872,7 +761,7 @@ class CamScanApp(ctk.CTk):
             return
 
         # Convert the captured OpenCV images to PIL images
-        images = [opencv_to_pil_image(entry.current_image) for entry in self.entries]
+        images = [utils.opencv_to_pil_image(e.current_image) for e in self.entries]
 
         # The PIL save functionality requires that we initiate it from a single
         # image, then append the remaining images as function parameter
@@ -915,7 +804,7 @@ class CamScanApp(ctk.CTk):
             return
 
         # Create the name of the output directory as a timestamp string
-        timestamp_str = get_timestamp_str()
+        timestamp_str = utils.get_timestamp_str()
         output_dir = f"{file_dialog_dir}/captures_{timestamp_str}"
         os.makedirs(output_dir, exist_ok=True)
 

@@ -29,8 +29,9 @@ WINDOW_TITLE = f"{__app_display_name__} {__version__}"
 WINDOW_WIDTH = 1536
 WINDOW_HEIGHT = 864
 
-# Define the to wait before updating the camera feed (20ms)
-CAMERA_FEED_WAIT_MS = 20
+# Define the desired frames per second in the camera feed
+CAMERA_FPS = 30
+CAMERA_WAIT_MS = int(1000 / CAMERA_FPS)
 
 # Define constants related to the styling of widgets in the GUI
 LEFT_MENU_PAD_X = 20
