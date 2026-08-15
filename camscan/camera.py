@@ -229,13 +229,28 @@ class Camera:
 class CameraManager:
     def __init__(self) -> None:
         self._cameras: dict[str, Camera] = {}
+        self.camera: Camera | None = None
         self.update_available_cameras()
+        self.set_camera_to_first_usable()
 
     def get_camera_names(self) -> list[str]:
         return list(self._cameras.keys())
 
     def get_camera_by_name(self, name: str) -> Camera:
-        return self._cameras[name]
+        if isinstance(name, str):
+            return self._cameras[name]
+        raise TypeError(f"Argument must be str but got {type(name)}")
+
+    def set_camera(self, camera: Camera | str) -> None:
+        if isinstance(camera, Camera):
+            self.camera = camera
+        elif isinstance(camera, str):
+            self.camera = self._cameras[camera]
+        else:
+            raise TypeError(f"Argument must be Camera or str but got {type(camera)}")
+
+    def set_camera_to_first_usable(self) -> None:
+        self.camera = self.get_first_usable_camera()
 
     def update_available_cameras(self) -> None:
         """
