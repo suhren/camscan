@@ -103,8 +103,13 @@ RESOLUTIONS = [
 # Input source mode options
 INPUT_SOURCE_MODE_CAMERA = "Camera"
 INPUT_SOURCE_MODE_FILE = "File"
-INPUT_SOURCE_MODES = [INPUT_SOURCE_MODE_CAMERA, INPUT_SOURCE_MODE_FILE]
+INPUT_SOURCE_MODE_FOLDER = "Folder"
+INPUT_SOURCE_MODES = [INPUT_SOURCE_MODE_CAMERA, INPUT_SOURCE_MODE_FILE, INPUT_SOURCE_MODE_FOLDER]
 DEFAULT_INPUT_SOURCE_MODE = INPUT_SOURCE_MODE_CAMERA
+
+# Supported image file extensions for loading
+# These are common formats that OpenCV can read
+SUPPORTED_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"]
 
 # Collection of tooltip strings shown for various widgets
 TOOLTIPS = {
@@ -128,8 +133,9 @@ TOOLTIPS = {
     "export_separate": "Export captures as separate files in a directory",
     "export_merged": "Export captures as a single merged file",
     # Input source mode
-    "input_source_mode": "Select input source: Camera for live feed, File for loading images",
+    "input_source_mode": "Select input source: Camera for live feed, File for single image, Folder for batch",
     "load_image": "Load an image file to process with document detection",
+    "load_folder": "Load a folder of images to process in batch",
     # Right panel
     "select_all": "Select or deselect all captures",
     "delete": "Delete the selected captures",
