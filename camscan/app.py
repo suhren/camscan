@@ -496,13 +496,13 @@ class CamScanApp(ctk.CTk):
 
         # Get the current grid rows of the entries. This is not really needed
         # since the indices i and j should be the same as the grid row
-        i_grid_row = self.entries[i].frame.grid_info()["row"]
-        j_grid_row = self.entries[j].frame.grid_info()["row"]
+        i_grid_row = self.entries[i].grid_info()["row"]
+        j_grid_row = self.entries[j].grid_info()["row"]
 
         # Switch grid positions
         logger.debug(f"Switching entries in rows {i_grid_row} and {j_grid_row}")
-        self.entries[i].frame.grid(row=j_grid_row)
-        self.entries[j].frame.grid(row=i_grid_row)
+        self.entries[i].grid(row=j_grid_row)
+        self.entries[j].grid(row=i_grid_row)
 
         # Switch index labels
         self.entries[i].index_label.configure(text=str(j + 1))
@@ -533,12 +533,12 @@ class CamScanApp(ctk.CTk):
 
         # For each such entry, destroy its frame and remove from the list
         for entry in entries_to_delete:
-            entry.frame.destroy()
+            entry.destroy()
             self.entries.remove(entry)
 
         # After deletion, update the grid positions of the remaining entries
         for i, entry in enumerate(self.entries):
-            entry.frame.grid(row=i)
+            entry.grid(row=i)
 
         # There is some peculiar behavior of the scrollbar in the scrollable
         # frame when all entries are deleted at once. If there are enough
