@@ -9,13 +9,14 @@ import functools
 import os
 import tkinter as tk
 import typing as t
+from pathlib import Path
 from tkinter import filedialog as tk_filedialog
 from tkinter import messagebox as tk_messagebox
 
 import customtkinter as ctk
 import cv2
 
-from camscan import config, utils
+from camscan import config, types, utils
 from camscan.camera import CameraManager
 from camscan.logging import logger
 from camscan.model.model import FloatParameter, IntParameter, ModelResult
@@ -58,6 +59,13 @@ class CamScanApp(ctk.CTk):
             value=config.EXPORT_SEPARATE_FILE_TYPES[0]
         )
         self.var_select_all_captures = tk.IntVar(value=0)
+
+        # Input source mode variables
+        self.var_input_source_mode = tk.StringVar(
+            value=config.DEFAULT_INPUT_SOURCE_MODE
+        )
+        self.current_static_image: types.Image | None = None
+        self.current_static_image_name: str = ""
 
         # configure window
         self.title(config.WINDOW_TITLE)
@@ -147,6 +155,23 @@ class CamScanApp(ctk.CTk):
             variable=self.var_debug_mode,
         )
 
+        # Add input source mode controls
+        self.input_source_mode_label = ctk.CTkLabel(
+            self.left_sidebar_frame, text="Input Source:", anchor="w"
+        )
+        self.input_source_mode_menu = ctk.CTkOptionMenu(
+            self.left_sidebar_frame,
+            values=config.INPUT_SOURCE_MODES,
+            variable=self.var_input_source_mode,
+            command=self.change_input_source_mode_event,
+        )
+        self.input_source_mode_menu.set(config.DEFAULT_INPUT_SOURCE_MODE)
+        self.load_image_button = ctk.CTkButton(
+            self.left_sidebar_frame,
+            text="Load Image",
+            command=self.load_image_event,
+        )
+
         # Add a button for capturing the screen
         self.capture_image_label = ctk.CTkLabel(
             self.left_sidebar_frame, text="Capture Image", anchor="w"
@@ -213,6 +238,9 @@ class CamScanApp(ctk.CTk):
         self.scaling_label.pack(**config.LEFT_MENU_PACK_KWARGS)
         self.scaling_option_menu.pack(**config.LEFT_MENU_PACK_KWARGS)
         self.debug_mode_check_box.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.input_source_mode_label.pack(**config.LEFT_MENU_PACK_KWARGS)
+        self.input_source_mode_menu.pack(**config.LEFT_MENU_PACK_KWARGS)
+        # Note: load_image_button is packed in change_input_source_mode_event based on mode
         self.capture_image_label.pack(**config.LEFT_MENU_PACK_KWARGS)
         self.free_capture_setting_check_box.pack(**config.LEFT_MENU_PACK_KWARGS)
         self.two_page_setting_check_box.pack(**config.LEFT_MENU_PACK_KWARGS)
@@ -314,6 +342,14 @@ class CamScanApp(ctk.CTk):
             text=config.TOOLTIPS["two_page_mode"],
         )
         Tooltip(
+            widget=self.input_source_mode_menu,
+            text=config.TOOLTIPS["input_source_mode"],
+        )
+        Tooltip(
+            widget=self.load_image_button,
+            text=config.TOOLTIPS["load_image"],
+        )
+        Tooltip(
             widget=self.capture_image_button,
             text=config.TOOLTIPS["capture"],
         )
@@ -342,11 +378,16 @@ class CamScanApp(ctk.CTk):
 
     def capture(self) -> ModelResult | None:
         """
-        Capture an image from the camera and run the document detection
-        algorithm on the resulting image.
-        :return: A ScanResult or None if we could not read a frame successfully.
+        Capture an image from the appropriate source (camera or file) and run
+        the document detection algorithm on the resulting image.
+        :return: A ModelResult or None if we could not get an image successfully.
         """
 
+        # In file mode, use the loaded static image
+        if self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FILE:
+            return self.process_static_image()
+
+        # In camera mode, use the camera
         if self.cm.camera is None:
             return None
 
@@ -366,13 +407,25 @@ class CamScanApp(ctk.CTk):
         image_preview_width = self.center_image_preview.get_width()
         image_preview_height = self.center_image_preview.get_height()
 
-        # Capture an image and the resulting detected contour from the camera
+        # Capture an image and the resulting detected contour from the appropriate source
         result = self.capture()
 
-        info = self.cm.camera.info_string if self.cm.camera is not None else None
+        info: str | None = None
+
+        # Set info string based on source
+        if self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FILE:
+            if self.current_static_image is not None:
+                info = f"File: {self.current_static_image_name}"
+            else:
+                info = "File Mode: Load an image"
+        else:
+            info = self.cm.camera.info_string if self.cm.camera is not None else None
 
         if result is None:
-            self.center_image_preview.show(message="No Video", info=info)
+            if self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FILE:
+                self.center_image_preview.show(message="No Image Loaded", info=info)
+            else:
+                self.center_image_preview.show(message="No Video", info=info)
 
         elif result.error_message:
             self.center_image_preview.show(message=result.error_message, info=info)
@@ -413,9 +466,13 @@ class CamScanApp(ctk.CTk):
         result = self.capture()
 
         if result is None or result.img is None:
+            if self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FILE:
+                error_msg = "No image loaded. Please load an image first."
+            else:
+                error_msg = "Could not capture an image from the Camera."
             tk_messagebox.showerror(
                 title="Error",
-                message="Could not capture an image from the Camera.",
+                message=error_msg,
             )
             return
 
@@ -427,17 +484,29 @@ class CamScanApp(ctk.CTk):
         elif result.warped is not None:
             image = result.warped
         else:
+            if self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FILE:
+                source = "the loaded image"
+            else:
+                source = "the Camera"
             tk_messagebox.showerror(
                 title="Error",
                 message=(
-                    "Could not extract the document image from the Camera. "
+                    f"Could not extract the document image from {source}. "
                     "Enable 'Free Capture Mode' to take the image anyway."
                 ),
             )
             return
 
-        # Give the capture a name using a timestamp string
-        timestamp_str = utils.get_timestamp_str()
+        # Generate a name for the capture
+        # In file mode, use the filename (without path) as the base name
+        # In camera mode, use a timestamp string
+        if (
+            self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FILE
+            and self.current_static_image_name
+        ):
+            base_name = Path(self.current_static_image_name).stem
+        else:
+            base_name = utils.get_timestamp_str()
 
         # If we are using two-page mode, cut the image into left and right parts
         if self.var_two_page_mode.get():
@@ -448,14 +517,14 @@ class CamScanApp(ctk.CTk):
                 CaptureEntry(
                     master=self.scrollable_frame,
                     image=left_image,
-                    name=f"{timestamp_str}_1",
+                    name=f"{base_name}_1",
                     index=len(self.entries) + 1,
                     move_entry=self.move_entry,
                 ),
                 CaptureEntry(
                     master=self.scrollable_frame,
                     image=right_image,
-                    name=f"{timestamp_str}_2",
+                    name=f"{base_name}_2",
                     index=len(self.entries) + 2,
                     move_entry=self.move_entry,
                 ),
@@ -466,7 +535,7 @@ class CamScanApp(ctk.CTk):
                 CaptureEntry(
                     master=self.scrollable_frame,
                     image=image,
-                    name=timestamp_str,
+                    name=base_name,
                     index=len(self.entries) + 1,
                     move_entry=self.move_entry,
                 )
@@ -734,6 +803,65 @@ class CamScanApp(ctk.CTk):
         window.attributes("-topmost", True)
         window.grab_set()
         window.attributes("-topmost", False)
+
+    def change_input_source_mode_event(self, selected_mode: str | None = None) -> None:
+        """
+        Handle the event when input source mode is changed.
+        Show/hide the load image button based on the selected mode.
+
+        :param selected_mode: The newly selected mode (passed by CTkOptionMenu callback)
+        """
+        # If selected_mode is provided (from callback), use it; otherwise get from var
+        if selected_mode is None:
+            selected_mode = self.var_input_source_mode.get()
+
+        if selected_mode == config.INPUT_SOURCE_MODE_FILE:
+            # Show the load image button in File mode
+            # Pack it before the capture_image_label to maintain correct order
+            self.load_image_button.pack(
+                **config.LEFT_MENU_PACK_KWARGS, before=self.capture_image_label
+            )
+            # Reset static image when entering file mode
+            self.current_static_image = None
+            self.current_static_image_name = ""
+        else:
+            # Hide the load image button in Camera mode
+            self.load_image_button.pack_forget()
+            # Clear static image when leaving file mode
+            self.current_static_image = None
+            self.current_static_image_name = ""
+
+    def load_image_event(self) -> None:
+        """
+        Handle the event to load an image from a file.
+        """
+        file_path = tk_filedialog.askopenfilename(
+            title="Select Image",
+            filetypes=[
+                ("Image Files", "*.png *.jpg *.jpeg *.bmp *.tiff *.tif *.webp"),
+                ("All Files", "*.*"),
+            ],
+        )
+        if file_path:
+            # Load the image using OpenCV
+            image = cv2.imread(file_path)
+            if image is not None:
+                self.current_static_image = image
+                self.current_static_image_name = file_path
+            else:
+                tk_messagebox.showerror(
+                    title="Error",
+                    message=f"Could not load image from:\n{file_path}",
+                )
+
+    def process_static_image(self) -> ModelResult | None:
+        """
+        Process the currently loaded static image through the model.
+        :return: ModelResult or None if no image is loaded
+        """
+        if self.current_static_image is None:
+            return None
+        return self.model.run(self.current_static_image)
 
 
 def change_ui_appearance_event(new_appearance_mode: str) -> None:
