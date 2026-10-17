@@ -171,6 +171,11 @@ class CamScanApp(ctk.CTk):
             text="Load Image",
             command=self.load_image_event,
         )
+        self.load_folder_button = ctk.CTkButton(
+            self.left_sidebar_frame,
+            text="Load Folder",
+            command=self.load_folder_event,
+        )
 
         # Add a button for capturing the screen
         self.capture_image_label = ctk.CTkLabel(
@@ -350,6 +355,10 @@ class CamScanApp(ctk.CTk):
             text=config.TOOLTIPS["load_image"],
         )
         Tooltip(
+            widget=self.load_folder_button,
+            text=config.TOOLTIPS["load_folder"],
+        )
+        Tooltip(
             widget=self.capture_image_button,
             text=config.TOOLTIPS["capture"],
         )
@@ -386,6 +395,10 @@ class CamScanApp(ctk.CTk):
         # In file mode, use the loaded static image
         if self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FILE:
             return self.process_static_image()
+        
+        # In folder mode, no continuous capture - return None
+        if self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FOLDER:
+            return None
 
         # In camera mode, use the camera
         if self.cm.camera is None:
@@ -417,13 +430,17 @@ class CamScanApp(ctk.CTk):
             if self.current_static_image is not None:
                 info = f"File: {self.current_static_image_name}"
             else:
-                info = "File Mode: Load an image"
+                info = "File Mode: Select a file"
+        elif self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FOLDER:
+            info = "Folder Mode: Select a folder"
         else:
             info = self.cm.camera.info_string if self.cm.camera is not None else None
 
         if result is None:
             if self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FILE:
-                self.center_image_preview.show(message="No Image Loaded", info=info)
+                self.center_image_preview.show(message="Select a File", info=info)
+            elif self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FOLDER:
+                self.center_image_preview.show(message="Select a Folder", info=info)
             else:
                 self.center_image_preview.show(message="No Video", info=info)
 
@@ -476,11 +493,9 @@ class CamScanApp(ctk.CTk):
             )
             return
 
-        # If we are using Free Capture mode, use the full uncropped image
+        # Determine which image to use based on mode
         if self.var_free_capture_mode.get():
             image = result.img
-
-        # Otherwise, use the warped cropped extracted image
         elif result.warped is not None:
             image = result.warped
         else:
@@ -498,8 +513,6 @@ class CamScanApp(ctk.CTk):
             return
 
         # Generate a name for the capture
-        # In file mode, use the filename (without path) as the base name
-        # In camera mode, use a timestamp string
         if (
             self.var_input_source_mode.get() == config.INPUT_SOURCE_MODE_FILE
             and self.current_static_image_name
@@ -508,7 +521,22 @@ class CamScanApp(ctk.CTk):
         else:
             base_name = utils.get_timestamp_str()
 
-        # If we are using two-page mode, cut the image into left and right parts
+        # Create capture entries and add them
+        new_entries = self.create_capture_entries_from_image(image, base_name)
+        self.add_capture_entries(new_entries)
+
+    def create_capture_entries_from_image(
+        self,
+        image: types.Image,
+        base_name: str,
+    ) -> list[CaptureEntry]:
+        """
+        Create capture entries from an image, handling two-page mode and free capture mode.
+        :param image: The image to create captures from
+        :param base_name: The base name for the capture(s)
+        :return: A list of CaptureEntry objects
+        """
+        # Apply two-page mode if enabled
         if self.var_two_page_mode.get():
             cutoff_width = image.shape[1] // 2
             left_image = image[:, :cutoff_width]
@@ -529,7 +557,7 @@ class CamScanApp(ctk.CTk):
                     move_entry=self.move_entry,
                 ),
             ]
-        # Otherwise, take the entire image and as as an entry
+        # Otherwise, take the entire image as an entry
         else:
             new_entries = [
                 CaptureEntry(
@@ -540,8 +568,17 @@ class CamScanApp(ctk.CTk):
                     move_entry=self.move_entry,
                 )
             ]
+        return new_entries
 
-        # If a postprocessing function is selected, apply it to the new images
+    def add_capture_entries(
+        self,
+        new_entries: list[CaptureEntry],
+    ) -> None:
+        """
+        Add capture entries to the list and update the UI.
+        :param new_entries: The list of CaptureEntry objects to add
+        """
+        # Apply postprocessing and add to entries
         self.apply_postprocessing(entries=new_entries)
         self.entries += new_entries
 
@@ -807,7 +844,7 @@ class CamScanApp(ctk.CTk):
     def change_input_source_mode_event(self, selected_mode: str | None = None) -> None:
         """
         Handle the event when input source mode is changed.
-        Show/hide the load image button based on the selected mode.
+        Show/hide the load image and load folder buttons based on the selected mode.
 
         :param selected_mode: The newly selected mode (passed by CTkOptionMenu callback)
         """
@@ -815,21 +852,24 @@ class CamScanApp(ctk.CTk):
         if selected_mode is None:
             selected_mode = self.var_input_source_mode.get()
 
+        # Hide all load buttons first
+        self.load_image_button.pack_forget()
+        self.load_folder_button.pack_forget()
+        
+        # Clear static image when leaving file/folder mode
+        self.current_static_image = None
+        self.current_static_image_name = ""
+        
         if selected_mode == config.INPUT_SOURCE_MODE_FILE:
-            # Show the load image button in File mode
-            # Pack it before the capture_image_label to maintain correct order
+            # Show Load Image button in File mode
             self.load_image_button.pack(
                 **config.LEFT_MENU_PACK_KWARGS, before=self.capture_image_label
             )
-            # Reset static image when entering file mode
-            self.current_static_image = None
-            self.current_static_image_name = ""
-        else:
-            # Hide the load image button in Camera mode
-            self.load_image_button.pack_forget()
-            # Clear static image when leaving file mode
-            self.current_static_image = None
-            self.current_static_image_name = ""
+        elif selected_mode == config.INPUT_SOURCE_MODE_FOLDER:
+            # Show Load Folder button in Folder mode
+            self.load_folder_button.pack(
+                **config.LEFT_MENU_PACK_KWARGS, before=self.capture_image_label
+            )
 
     def load_image_event(self) -> None:
         """
@@ -838,7 +878,7 @@ class CamScanApp(ctk.CTk):
         file_path = tk_filedialog.askopenfilename(
             title="Select Image",
             filetypes=[
-                ("Image Files", "*.png *.jpg *.jpeg *.bmp *.tiff *.tif *.webp"),
+                ("Image Files", "*" + " *".join(config.SUPPORTED_IMAGE_EXTENSIONS)),
                 ("All Files", "*.*"),
             ],
         )
@@ -853,6 +893,71 @@ class CamScanApp(ctk.CTk):
                     title="Error",
                     message=f"Could not load image from:\n{file_path}",
                 )
+
+    def load_folder_event(self) -> None:
+        """
+        Handle the event to load and process all images from a folder.
+        """
+        folder_path = tk_filedialog.askdirectory(title="Select Folder")
+        if not folder_path:
+            return
+        # Find all image files in the folder (recursive)
+        image_extensions = set(config.SUPPORTED_IMAGE_EXTENSIONS)
+        folder_path_obj = Path(folder_path)
+        image_files = []
+        
+        # Walk through all files recursively
+        for filepath in folder_path_obj.rglob("*"):
+            if filepath.is_file() and filepath.suffix.lower() in image_extensions:
+                image_files.append(str(filepath))
+        
+        if not image_files:
+            tk_messagebox.showinfo(
+                title="No Images Found",
+                message=f"No supported image files found in:\n{folder_path}",
+            )
+            return
+        
+        # Process all images
+        processed = 0
+        skipped = 0
+        
+        for image_path in image_files:
+            # Load the image
+            image = cv2.imread(image_path)
+            if image is None:
+                skipped += 1
+                continue
+            
+            # Process through the model
+            result = self.model.run(image)
+            
+            if result is None or result.img is None:
+                skipped += 1
+                continue
+            
+            # Determine which image to use
+            if self.var_free_capture_mode.get():
+                capture_image = result.img
+            elif result.warped is not None:
+                capture_image = result.warped
+            else:
+                skipped += 1
+                continue
+            
+            # Extract filename without extension for naming
+            filename = Path(image_path).stem
+            
+            # Create capture entries and add them
+            new_entries = self.create_capture_entries_from_image(capture_image, filename)
+            self.add_capture_entries(new_entries)
+            processed += 1
+        
+        # Show summary
+        tk_messagebox.showinfo(
+            title="Batch Processing Complete",
+            message=f"Processed {processed} images. Skipped {skipped} images.",
+        )
 
     def process_static_image(self) -> ModelResult | None:
         """
