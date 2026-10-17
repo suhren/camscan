@@ -100,6 +100,12 @@ RESOLUTIONS = [
     "640x480",
 ]
 
+# Input source mode options
+INPUT_SOURCE_MODE_CAMERA = "Camera"
+INPUT_SOURCE_MODE_FILE = "File"
+INPUT_SOURCE_MODES = [INPUT_SOURCE_MODE_CAMERA, INPUT_SOURCE_MODE_FILE]
+DEFAULT_INPUT_SOURCE_MODE = INPUT_SOURCE_MODE_CAMERA
+
 # Collection of tooltip strings shown for various widgets
 TOOLTIPS = {
     # Left panel
@@ -121,6 +127,9 @@ TOOLTIPS = {
     ),
     "export_separate": "Export captures as separate files in a directory",
     "export_merged": "Export captures as a single merged file",
+    # Input source mode
+    "input_source_mode": "Select input source: Camera for live feed, File for loading images",
+    "load_image": "Load an image file to process with document detection",
     # Right panel
     "select_all": "Select or deselect all captures",
     "delete": "Delete the selected captures",
