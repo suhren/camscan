@@ -24,6 +24,7 @@ dev = [
     { include-group = "test" },
     { include-group = "mypy" },
     { include-group = "pydoclint" },
+    { include-group = "mdformat" },
     "jupyter>=1.1.1",
     "matplotlib>=3.11.1",
     "pyinstaller",
@@ -32,6 +33,7 @@ ruff = ["ruff>=0.16.1"]
 test = ["pytest"]
 mypy = ["mypy>=2.3.0", "types-pyinstaller>=6.21.0.20260616"]
 pydoclint = ["pydoclint>=0.9.1"]
+mdformat = ["mdformat>=1.0.0", "mdformat_pyproject>=0.1.1"]
 
 [build-system]
 requires = ["setuptools"]
@@ -66,6 +68,13 @@ arg-type-hints-in-docstring = false
 check-return-types = false
 check-class-attributes = false
 exclude = ".venv"
+
+[tool.mdformat]
+exclude = [
+    "**/.*/**",
+    "**/build/**",
+    "**/dist/**",
+]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
