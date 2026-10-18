@@ -448,10 +448,41 @@ class CamScanApp(ctk.CTk):
             self.center_image_preview.show(message=result.error_message, info=info)
 
         elif self.var_debug_mode.get():
+            # Create labels with timing information if available
+            if result.step_timings:
+                labels = [
+                    f"{name} ({result.get_step_proportion(name)*100:.1f}%)"
+                    for name in result.debug_images
+                ]
+                # Add timing summary as additional info
+                timing_summary_lines = [f"Total time: {result.total_time*1000:.2f}ms", ""]
+                if result.step_timings:
+                    # Get steps in execution order (dict keys maintain insertion order in Python 3.7+)
+                    step_order = {name: idx+1 for idx, name in enumerate(result.step_timings.keys())}
+                    # Sort steps by time proportion descending (slowest first) but keep original order
+                    sorted_steps = sorted(
+                        result.step_timings.items(),
+                        key=lambda x: x[1],
+                        reverse=True
+                    )
+                    # Calculate max step name length and max step number for consistent formatting
+                    max_name_len = max(len(name) for name, _ in sorted_steps)
+                    max_step_num_len = len(str(len(step_order)))
+                    for name, time_val in sorted_steps:
+                        original_order = step_order[name]
+                        proportion = time_val / result.total_time if result.total_time > 0 else 0.0
+                        timing_summary_lines.append(
+                            f"  {original_order:>{max_step_num_len}d}: {name:<{max_name_len}s} : {time_val*1000:7.2f}ms ({proportion*100:5.1f}%)"
+                        )
+                timing_summary = "\n".join(timing_summary_lines)
+                info = f"{info}\n{timing_summary}" if info else timing_summary
+            else:
+                labels = list(result.debug_images)
+            
             self.center_image_preview.show(
                 image=utils.images_in_grid(
                     images=list(result.debug_images.values()),
-                    labels=list(result.debug_images.keys()),
+                    labels=labels,
                     output_width=image_preview_width,
                     output_height=image_preview_height,
                 ),
