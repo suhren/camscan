@@ -47,12 +47,23 @@ If you have `uv` installed, the setups is simply as simple as running the app di
 uv run -m camscan.app
 ```
 
-## Build instructions
+## Build instructions (Linux and Mac)
 
 Build the software as a standalone application using the following command:
 
 ```bash
 uv run build.py
+```
+
+You can then find the resulting executable file in the `dist` folder.
+
+## Build instructions (Windows)
+
+When building the executable on Windows with PyInstaller, it will fail with
+`FileNotFoundError: Tcl data directory not found`. This requires Python 3.12.
+
+```bash
+uv run --python 3.12 build.py
 ```
 
 You can then find the resulting executable file in the `dist` folder.

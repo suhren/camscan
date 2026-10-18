@@ -9,7 +9,14 @@ description = "Camscan is an application for scanning documents using a camera c
 readme = { file = "README.md", content-type = "text/markdown" }
 license = { file = "LICENSE.md" }
 dynamic = ["version"]
-requires-python = ">= 3.14"
+# NOTE regarding the required Python version:
+# - The app itself is recommended to run with Python >= 3.14, as earlier versions have
+#   issues with rendering CustomTkInter components in Linux.
+# - However, when building the executable on Windows with PyInstaller, it will fail with
+#   "FileNotFoundError: Tcl data directory not found". This requires Python <= 3.12.
+# - Therefore, we "allow" the app to run with 3.12, but we pin the suggested version to
+#   3.14 in the .python-version file instead, so 3.14 is preferred when running with uv.
+requires-python = ">= 3.12"
 dependencies = [
     "customtkinter",
     "numpy",
@@ -70,11 +77,7 @@ check-class-attributes = false
 exclude = ".venv"
 
 [tool.mdformat]
-exclude = [
-    "**/.*/**",
-    "**/build/**",
-    "**/dist/**",
-]
+exclude = ["**/.*/**", "**/build/**", "**/dist/**"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
