@@ -16,13 +16,13 @@ class GrabCutContours(BaseModel):
         super().__init__(
             parameters=[
                 IntParameter(
-                    name="rescaled_height", value=256, min_value=64, max_value=1024
+                    name="rescaled_height", value=128, min_value=64, max_value=1024
                 ),
                 FloatParameter(
                     name="margin", value=0.05, min_value=0.01, max_value=0.25
                 ),
                 IntParameter(
-                    name="grabcut_iter_count", value=3, min_value=1, max_value=10
+                    name="grabcut_iter_count", value=2, min_value=1, max_value=10
                 ),
             ]
         )

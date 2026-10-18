@@ -18,7 +18,7 @@ class GrabCutHough(BaseModel):
         super().__init__(
             parameters=[
                 FloatParameter(
-                    name="rescaled_height", value=256, min_value=64, max_value=1024
+                    name="rescaled_height", value=128, min_value=64, max_value=1024
                 ),
                 FloatParameter(
                     name="margin", value=0.05, min_value=0.01, max_value=0.25
@@ -58,6 +58,9 @@ class GrabCutHough(BaseModel):
                     value=50,
                     min_value=1,
                     max_value=200,
+                ),
+                IntParameter(
+                    name="grabcut_iter_count", value=2, min_value=1, max_value=10
                 ),
             ]
         )
@@ -121,7 +124,15 @@ class GrabCutHough(BaseModel):
         result.add_step("mask", mask)
 
         # Apply GrabCut
-        cv2.grabCut(img_scale, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
+        cv2.grabCut(
+            img_scale,
+            mask,
+            rect,
+            bgdModel,
+            fgdModel,
+            self.param("grabcut_iter_count").value,
+            cv2.GC_INIT_WITH_RECT,
+        )
 
         result.add_step("grabcut")
 
