@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.3.0] - 2026-10-18
 
 ### Added
 
@@ -13,15 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **File Mode**: Load and process single image files
   - **Folder Mode**: Batch process all images in a folder (recursive subfolder support)
   - **Input Source Selector**: Dropdown menu to switch between Camera/File/Folder modes
+- **Per-step timing visualization**: Debug mode now shows execution time for each processing step with percentages
+- **New document detection models based on GrabCut algorithm**:
+  - `GrabCutContours`: Uses GrabCut with contour finding for reliable document detection
+  - `GrabCutHough`: Uses GrabCut with Hough line transform for structured documents
 - `SUPPORTED_IMAGE_EXTENSIONS` constant in config for centralized image type management
+- Dedicated development resources folder with Jupyter notebook for GrabCut experimentation
 
 ### Changed
 
-- Refactored capture logic into reusable helper methods (`create_capture_entries_from_image`, `add_capture_entries`)
-- UI messages now use consistent "Select a File" / "Select a Folder" terminology
-- Image file extensions centralized in config instead of hardcoded
-- Using `pathlib.Path` instead of `os.path` for path manipulation
-- Removed duplicate `capture()` method definition
+- Updated Python version requirement to >= 3.12 (previously 3.11)
 
 ## [v0.2.1] - 2025-10-27
 
@@ -59,7 +60,7 @@ Changes:
 
 This is an initial test release of the software.
 
-[unreleased]: https://github.com/suhren/camscan/compare/v0.2.1...develop
 [v0.1.0]: https://github.com/suhren/camscan/releases/tag/v0.1.0
 [v0.2.0]: https://github.com/suhren/camscan/releases/tag/v0.2.0
 [v0.2.1]: https://github.com/suhren/camscan/releases/tag/v0.2.1
+[v0.3.0]: https://github.com/suhren/camscan/releases/tag/v0.3.0
