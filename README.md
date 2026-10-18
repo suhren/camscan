@@ -1,4 +1,3 @@
-
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code Style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
@@ -27,7 +26,7 @@ The functionality of the software includes, but is not limited to:
 - Ability to export captures:
   - As separate files to a directory with a wide range of formats like `.png`, `.jpg`, and many others.
   - As a concatenated `.pdf` file containing all the captures.
-  
+
 ## Installation
 
 You can find the latest available pre-build standalone executables for this
