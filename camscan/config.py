@@ -9,7 +9,7 @@ from camscan import (
 )
 from camscan.model.model import BaseModel
 from camscan.model.models.find_contours import FindContours
-from camscan.model.models.grabcut_contours import GrabCutConotours
+from camscan.model.models.grabcut_contours import GrabCutContours
 from camscan.model.models.grabcut_hough import GrabCutHough
 from camscan.model.models.simple_hough import SimpleHough
 
@@ -17,10 +17,10 @@ MODELS: dict[str, BaseModel] = {
     "SimpleHough": SimpleHough(),
     "GrabCutHough": GrabCutHough(),
     "FindContours": FindContours(),
-    "GrabCutConotours": GrabCutConotours(),
+    "GrabCutContours": GrabCutContours(),
 }
 
-DEFAULT_MODEL_OPTION = "GrabCutConotours"
+DEFAULT_MODEL_OPTION = "GrabCutContours"
 
 # Define the window title
 WINDOW_TITLE = f"{__app_display_name__} {__version__}"
@@ -104,7 +104,11 @@ RESOLUTIONS = [
 INPUT_SOURCE_MODE_CAMERA = "Camera"
 INPUT_SOURCE_MODE_FILE = "File"
 INPUT_SOURCE_MODE_FOLDER = "Folder"
-INPUT_SOURCE_MODES = [INPUT_SOURCE_MODE_CAMERA, INPUT_SOURCE_MODE_FILE, INPUT_SOURCE_MODE_FOLDER]
+INPUT_SOURCE_MODES = [
+    INPUT_SOURCE_MODE_CAMERA,
+    INPUT_SOURCE_MODE_FILE,
+    INPUT_SOURCE_MODE_FOLDER,
+]
 DEFAULT_INPUT_SOURCE_MODE = INPUT_SOURCE_MODE_CAMERA
 
 # Supported image file extensions for loading

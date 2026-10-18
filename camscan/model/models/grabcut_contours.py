@@ -11,7 +11,7 @@ from camscan.model import hough_utils
 from camscan.model.model import BaseModel, FloatParameter, IntParameter, ModelResult
 
 
-class GrabCutConotours(BaseModel):
+class GrabCutContours(BaseModel):
     def __init__(self) -> None:
         super().__init__(
             parameters=[
