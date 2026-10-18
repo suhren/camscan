@@ -85,6 +85,7 @@ class SimpleHough(BaseModel):
             contour=None,
             warped=None,
         )
+        result.add_step("img", img)
 
         # When detecting documents, we can assume that they make up a large portion
         # of the image and have a somewhat clear and defined rectangular shape. To
@@ -99,7 +100,7 @@ class SimpleHough(BaseModel):
         # The result is converted back to original scale later, so save this ratio
         original_scale = img.shape[0] / img_scale.shape[0]
 
-        result.debug_images["img_scale"] = img_scale
+        result.add_step("img_scale", img_scale)
 
         # The algorithm works by detecting edges in the image. For this application
         # color is not (usually) interesting, so convert the image to grayscale.
@@ -108,7 +109,7 @@ class SimpleHough(BaseModel):
             code=cv2.COLOR_BGR2GRAY,
         )
 
-        result.debug_images["img_scale_gray"] = img_scale_gray
+        result.add_step("img_scale_gray", img_scale_gray)
 
         # We can remove unnecessary details from the image by applying a Gaussian
         # blur, which will suppress high frequency noise (like the actual text on
@@ -123,7 +124,7 @@ class SimpleHough(BaseModel):
             sigmaX=0,
         )
 
-        result.debug_images["img_scale_gray_blur"] = img_scale_gray_blur
+        result.add_step("img_scale_gray_blur", img_scale_gray_blur)
 
         # We can then apply a morphological 'Close' transformation to the image.
         # Closing is a 'Dilation' followed by 'Erosion'. Dilation will grow bright
@@ -143,7 +144,7 @@ class SimpleHough(BaseModel):
             ),
         )
 
-        result.debug_images["img_scale_gray_blur_dilated"] = img_scale_gray_blur_dilated
+        result.add_step("img_scale_gray_blur_dilated", img_scale_gray_blur_dilated)
 
         # We can then apply the Canny edge detection algorithm to the image
         img_edge = cv2.Canny(
@@ -152,7 +153,7 @@ class SimpleHough(BaseModel):
             threshold2=self.param("canny_threshold2").value,
         )
 
-        result.debug_images["img_edge"] = img_edge
+        result.add_step("img_edge", img_edge)
 
         # Apply the Hough Line transform to the edged image
         # The following code will try an increasing range of threshold values to
@@ -181,7 +182,7 @@ class SimpleHough(BaseModel):
             image=img_hough_preview, lines=lines
         )
 
-        result.debug_images["img_hough_preview"] = img_hough_preview
+        result.add_step("img_hough_preview", img_hough_preview)
 
         # Run the contour finding algorithm to get a list of contours
         contours = hough_utils.find_contours(
@@ -201,7 +202,7 @@ class SimpleHough(BaseModel):
             min_contour_area_ratio=self.param("min_contour_area_ratio").value,
         )
 
-        result.debug_images["best_mask"] = best_mask
+        result.add_step("best_mask", best_mask)
 
         # Return if no best contour could be found
         if best_contour is None:
@@ -215,14 +216,14 @@ class SimpleHough(BaseModel):
             contour=best_contour,
         )
 
-        result.debug_images["img_hough_best_contour"] = img_hough_best_contour
+        result.add_step("img_hough_best_contour", img_hough_best_contour)
 
         # Extract the area within the contour to a separate image
         warped, best_contour = hough_utils.extract_contour(
             image=img, contour=best_contour
         )
 
-        result.debug_images["warped"] = warped
+        result.add_step("warped", warped)
         result.contour = best_contour
         result.warped = warped
 

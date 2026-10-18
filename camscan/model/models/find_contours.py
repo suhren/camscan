@@ -53,21 +53,20 @@ class FindContours(BaseModel):
             contour=None,
             warped=None,
         )
+        result.add_step("input", img)
 
         img_scale = utils.resize_with_aspect_ratio(
             image=img,
             height=self.param("rescaled_height").value,
         )
         original_scale = img.shape[0] / img_scale.shape[0]
-
-        result.debug_images["scale"] = img_scale
+        result.add_step("scale", img_scale)
 
         img_grayscale = cv2.cvtColor(
             src=img_scale,
             code=cv2.COLOR_BGR2GRAY,
         )
-
-        result.debug_images["grayscale"] = img_grayscale
+        result.add_step("grayscale", img_grayscale)
 
         img_blur = cv2.GaussianBlur(
             src=img_grayscale,
@@ -77,8 +76,7 @@ class FindContours(BaseModel):
             ),
             sigmaX=0,
         )
-
-        result.debug_images["blur"] = img_blur
+        result.add_step("blur", img_blur)
 
         img_threshold = cv2.threshold(
             src=img_blur,
@@ -86,8 +84,7 @@ class FindContours(BaseModel):
             maxval=255,
             type=cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )[1]
-
-        result.debug_images["threshold"] = img_threshold
+        result.add_step("threshold", img_threshold)
 
         kernel = np.ones(
             (
@@ -98,16 +95,14 @@ class FindContours(BaseModel):
         )
         img_morphology = cv2.morphologyEx(img_threshold, cv2.MORPH_CLOSE, kernel)
         img_morphology = cv2.morphologyEx(img_morphology, cv2.MORPH_OPEN, kernel)
-
-        result.debug_images["morphology"] = img_morphology
+        result.add_step("morphology", img_morphology)
 
         img_canny = cv2.Canny(
             image=img_morphology,
             threshold1=self.param("canny_threshold1").value,
             threshold2=self.param("canny_threshold2").value,
         )
-
-        result.debug_images["canny"] = img_canny
+        result.add_step("canny", img_canny)
 
         contours, _hierarchy = cv2.findContours(
             image=img_canny,
@@ -135,7 +130,7 @@ class FindContours(BaseModel):
             else:
                 cv2.drawContours(img_contours, [contour], 0, (255, 0, 0), 1)
 
-        result.debug_images["contours"] = img_contours
+        result.add_step("contours", img_contours)
 
         # get perimeter and approximate a polygon
         largest_contour_perimeter = cv2.arcLength(largest_contour, True)
@@ -155,9 +150,7 @@ class FindContours(BaseModel):
             thickness=1,
             lineType=cv2.LINE_AA,
         )
-        # Alternate: cv2.drawContours(page,[corners],0,(0,0,255),1)
-
-        result.debug_images["polygon"] = img_polygon
+        result.add_step("polygon", img_polygon)
 
         # Scale the best contour back to the original input image scale
         contour = (largest_contour_corners * original_scale).astype(np.int32)
@@ -171,7 +164,8 @@ class FindContours(BaseModel):
         # Extract the area within the contour to a separate image
         warped, contour = hough_utils.extract_contour(image=img, contour=contour)
 
-        result.debug_images["warped"] = warped
+        result.add_step("warped", warped)
+
         result.contour = contour
         result.warped = warped
 

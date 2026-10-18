@@ -75,6 +75,7 @@ class GrabCutHough(BaseModel):
                 "img": img,
                 "img_scale": None,
                 "mask": None,
+                "grabcut": None,
                 "mask2": None,
                 "img_grabcut": None,
                 "blur": None,
@@ -88,6 +89,7 @@ class GrabCutHough(BaseModel):
             contour=None,
             warped=None,
         )
+        result.add_step("img", img)
 
         # When detecting documents, we can assume that they make up a large portion
         # of the image and have a somewhat clear and defined rectangular shape. To
@@ -102,7 +104,7 @@ class GrabCutHough(BaseModel):
         # The result is converted back to original scale later, so save this ratio
         original_scale = img.shape[0] / img_scale.shape[0]
 
-        result.debug_images["img_scale"] = img_scale
+        result.add_step("img_scale", img_scale)
 
         # Apply a margin to the image to avoid the edges
         height, width = img_scale.shape[:2]
@@ -116,21 +118,23 @@ class GrabCutHough(BaseModel):
         bgdModel = np.zeros((1, 65), np.float64)
         fgdModel = np.zeros((1, 65), np.float64)
 
-        result.debug_images["mask"] = mask
+        result.add_step("mask", mask)
 
         # Apply GrabCut
         cv2.grabCut(img_scale, mask, rect, bgdModel, fgdModel, 5, cv2.GC_INIT_WITH_RECT)
 
+        result.add_step("grabcut")
+
         # Create binary mask
         mask2 = np.where((mask == 2) | (mask == 0), 0, 1).astype("uint8")
 
-        result.debug_images["mask2"] = mask2
+        result.add_step("mask2", mask2)
 
         # Convert to RGBA and apply mask to alpha channel
         img_grabcut = cv2.cvtColor(img_scale, cv2.COLOR_BGR2BGRA)
         img_grabcut[:, :, 3] = mask2 * 255  # 0 for background, 255 for foreground
 
-        result.debug_images["img_grabcut"] = img_grabcut
+        result.add_step("img_grabcut", img_grabcut)
 
         blur = cv2.GaussianBlur(
             src=mask2,
@@ -141,7 +145,7 @@ class GrabCutHough(BaseModel):
             sigmaX=0,
         )
 
-        result.debug_images["blur"] = blur
+        result.add_step("blur", blur)
 
         # We can then apply a morphological 'Close' transformation to the image.
         # Closing is a 'Dilation' followed by 'Erosion'. Dilation will grow bright
@@ -161,7 +165,7 @@ class GrabCutHough(BaseModel):
             ),
         )
 
-        result.debug_images["dilated"] = blur
+        result.add_step("dilated", dilated)
 
         edge = cv2.Canny(
             image=dilated,
@@ -169,7 +173,7 @@ class GrabCutHough(BaseModel):
             threshold2=self.param("canny_threshold2").value,
         )
 
-        result.debug_images["edge"] = edge
+        result.add_step("edge", edge)
 
         lines = cv2.HoughLines(
             image=edge,
@@ -191,7 +195,7 @@ class GrabCutHough(BaseModel):
             image=img_hough_preview, lines=lines
         )
 
-        result.debug_images["img_hough_preview"] = img_hough_preview
+        result.add_step("img_hough_preview", img_hough_preview)
 
         # Run the contour finding algorithm to get a list of contours
         contours = hough_utils.find_contours(
@@ -211,7 +215,7 @@ class GrabCutHough(BaseModel):
             min_contour_area_ratio=self.param("min_contour_area_ratio").value,
         )
 
-        result.debug_images["best_mask"] = best_mask
+        result.add_step("best_mask", best_mask)
 
         # Return if no best contour could be found
         if best_contour is None:
@@ -225,14 +229,14 @@ class GrabCutHough(BaseModel):
             contour=best_contour,
         )
 
-        result.debug_images["img_hough_best_contour"] = img_hough_best_contour
+        result.add_step("img_hough_best_contour", img_hough_best_contour)
 
         # Extract the area within the contour to a separate image
         warped, best_contour = hough_utils.extract_contour(
             image=img, contour=best_contour
         )
 
-        result.debug_images["warped"] = warped
+        result.add_step("warped", warped)
         result.contour = best_contour
         result.warped = warped
 

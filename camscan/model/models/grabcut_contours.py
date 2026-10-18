@@ -39,7 +39,6 @@ class GrabCutConotours(BaseModel):
             debug_images={
                 "input": img,
                 "scale": None,
-                "mask": None,
                 "grabcut": None,
                 "contours": None,
                 "polygon": None,
@@ -48,6 +47,7 @@ class GrabCutConotours(BaseModel):
             contour=None,
             warped=None,
         )
+        result.add_step("input", img)
 
         # When detecting documents, we can assume that they make up a large portion
         # of the image and have a somewhat clear and defined rectangular shape. To
@@ -62,7 +62,7 @@ class GrabCutConotours(BaseModel):
         # The result is converted back to original scale later, so save this ratio
         original_scale = img.shape[0] / img_scale.shape[0]
 
-        result.debug_images["scale"] = img_scale
+        result.add_step("scale", img_scale)
 
         # Apply a margin to the image to avoid the edges
         height, width = img_scale.shape[:2]
@@ -90,13 +90,11 @@ class GrabCutConotours(BaseModel):
         # Create binary mask
         img_mask2 = np.where((img_mask1 == 2) | (img_mask1 == 0), 0, 1).astype("uint8")
 
-        result.debug_images["mask"] = img_mask2 * 255
-
         # Convert to RGBA and apply mask to alpha channel
         img_grabcut = cv2.cvtColor(img_scale, cv2.COLOR_BGR2BGRA)
         img_grabcut[:, :, 3] = img_mask2 * 255  # 0 for background, 255 for foreground
 
-        result.debug_images["grabcut"] = img_grabcut
+        result.add_step("grabcut", img_grabcut)
 
         contours, _hierarchy = cv2.findContours(
             image=img_mask2,
@@ -127,7 +125,7 @@ class GrabCutConotours(BaseModel):
             else:
                 cv2.drawContours(img_contours, [contour], 0, (255, 0, 0), 1)
 
-        result.debug_images["contours"] = img_contours
+        result.add_step("contours", img_contours)
 
         # get perimeter and approximate a polygon
         largest_contour_perimeter = cv2.arcLength(largest_contour, True)
@@ -148,7 +146,7 @@ class GrabCutConotours(BaseModel):
             lineType=cv2.LINE_AA,
         )
 
-        result.debug_images["polygon"] = img_polygon
+        result.add_step("polygon", img_polygon)
 
         # Scale the best contour back to the original input image scale
         contour = (largest_contour_corners * original_scale).astype(np.int32)
@@ -162,7 +160,7 @@ class GrabCutConotours(BaseModel):
         # Extract the area within the contour to a separate image
         warped, contour = hough_utils.extract_contour(image=img, contour=contour)
 
-        result.debug_images["warped"] = warped
+        result.add_step("warped", warped)
         result.contour = contour
         result.warped = warped
 
